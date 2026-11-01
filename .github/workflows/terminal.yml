@@ -1,0 +1,26 @@
+name: Native terminal
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  terminal:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build vendored terminal bridge
+        run: python tools/ci-run.py --log build/terminal-build.log -- python tools/build-terminal.py
+      - name: Emulator and real PTY / ConPTY checks
+        run: python tools/ci-run.py --log build/terminal-test.log -- python tools/check-terminal.py
+      - name: Retain logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terminal-${{ matrix.os }}
+          path: build/terminal-*.log

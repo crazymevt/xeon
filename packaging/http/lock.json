@@ -1,0 +1,10 @@
+{
+  "vcpkg": "d186940b2f0c4e8e5b4ff804af57d2a26fbfa091",
+  "certifi": "c463746147ee894635ba5f67bab4bddff53abee2",
+  "lisp": {
+    "trivial-features": ["https://github.com/trivial-features/trivial-features.git", "828246a1c1efdcad94c1ba2f2a210bb9cb4cde3e"],
+    "alexandria": ["https://gitlab.common-lisp.net/alexandria/alexandria.git", "f283e25efbe9f4323419a138b22ad2fc027f6641"],
+    "babel": ["https://github.com/cl-babel/babel.git", "4eaf3f228be4f6860ccc0b0fbb4c1781a1ee6597"],
+    "cffi": ["https://github.com/cffi/cffi.git", "787d3cd94404f85c0324b0f8d6b9c535fc091720"]
+  }
+}

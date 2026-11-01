@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 3.16)
+project(krypton_terminal LANGUAGES C CXX)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+file(GLOB VTERM_SOURCES "../../vendor/libvterm/src/*.c")
+add_library(krypton_terminal SHARED bridge.cpp ${VTERM_SOURCES})
+target_include_directories(krypton_terminal PRIVATE ../../vendor/libvterm/include)
+find_package(Threads REQUIRED)
+target_link_libraries(krypton_terminal PRIVATE Threads::Threads)
+if(WIN32)
+  target_compile_definitions(krypton_terminal PRIVATE _WIN32_WINNT=0x0A00 NOMINMAX WIN32_LEAN_AND_MEAN)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  target_link_libraries(krypton_terminal PRIVATE util)
+endif()
+set_target_properties(krypton_terminal PROPERTIES
+  LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")

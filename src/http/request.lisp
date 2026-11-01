@@ -1,0 +1,71 @@
+(in-package #:xeon.http)
+
+(defstruct request
+  url (method "GET") headers body
+  (timeout-ms 30000) (connect-timeout-ms 10000)
+  (max-body-bytes (* 16 1024 1024)) (max-header-bytes (* 256 1024)) ca-file)
+
+(defstruct (response (:constructor %make-response))
+  status body headers elapsed-seconds)
+
+(define-condition http-error (error)
+  ((code :initarg :code :initform nil :reader http-error-code)
+   (reason :initarg :reason :reader http-error-reason))
+  (:report (lambda (condition stream)
+             ;; Never include request URLs, credentials, headers, or payloads.
+             (format stream "HTTP request failed: ~A" (http-error-reason condition)))))
+
+(defun fail-request (reason &optional code)
+  (error 'http-error :reason reason :code code))
+
+(defun response-size (response) (length (response-body response)))
+(defun response-headers-text (response)
+  "Decode HTTP header octets losslessly for display, preserving the raw headers."
+  (babel:octets-to-string (response-headers response) :encoding :iso-8859-1))
+(defun response-text (response &key (encoding :utf-8))
+  "Explicit text decoding; RESPONSE-BODY always preserves the original octets."
+  (babel:octets-to-string (response-body response) :encoding encoding))
+
+(defun http-token-p (value)
+  (and (stringp value) (plusp (length value))
+       (every (lambda (c)
+                (or (char<= #\a c #\z) (char<= #\A c #\Z) (char<= #\0 c #\9)
+                    (find c "!#$%&'*+-.^_`|~"))) value)))
+
+(defun validate-request (request)
+  (let* ((url (request-url request))
+         (prefix (and (stringp url)
+                      (cond ((uiop:string-prefix-p "https://" (string-downcase url)) 8)
+                            ((uiop:string-prefix-p "http://" (string-downcase url)) 7)))))
+    (unless (and prefix (> (length url) prefix)
+                 (notany (lambda (c) (or (<= (char-code c) 32) (= (char-code c) 127)
+                                         (char= c #\\))) url))
+      (fail-request "An absolute HTTP(S) URL without whitespace is required"))
+    (let ((end (or (position-if (lambda (c) (find c "/?#")) url :start prefix)
+                   (length url))))
+      (when (or (= end prefix) (position #\@ url :start prefix :end end))
+        (fail-request "Use explicit authentication headers, not URL credentials"))))
+  (unless (http-token-p (request-method request)) (fail-request "Invalid HTTP method"))
+  (dolist (header (request-headers request))
+    (unless (and (consp header) (http-token-p (car header)) (stringp (cdr header))
+                 (every (lambda (c) (or (char= c #\Tab)
+                                       (and (>= (char-code c) 32) (/= (char-code c) 127))))
+                        (cdr header)))
+      (fail-request "Invalid HTTP header"))
+    ;; libcurl owns framing; custom framing can desynchronize an HTTP connection.
+    (when (member (car header) '("Content-Length" "Transfer-Encoding") :test #'string-equal)
+      (fail-request "Request framing headers are managed by the transport")))
+  (unless (or (null (request-body request)) (stringp (request-body request))
+              (typep (request-body request) '(vector (unsigned-byte 8))))
+    (fail-request "Body must be text or an octet vector"))
+  (when (and (string-equal "HEAD" (request-method request)) (request-body request))
+    (fail-request "HEAD requests cannot have a body"))
+  (dolist (value (list (request-timeout-ms request) (request-connect-timeout-ms request)
+                       (request-max-body-bytes request) (request-max-header-bytes request)))
+    (unless (typep value '(integer 1 2147483647))
+      (fail-request "Timeouts and response limits must be positive 32-bit integers")))
+  (when (request-ca-file request)
+    (unless (and (stringp (request-ca-file request))
+                 (not (find #\Null (request-ca-file request))))
+      (fail-request "CA file must be a native pathname string without NUL")))
+  request)
