@@ -67,6 +67,8 @@
     (ui (menu-bar
           (menu :title "File"
             (menu-item :label "New" :shortcut "Primary+N" :on-activate (action (workbench) (new-document workbench)))
+            (menu-item :label "New AI Chat" :shortcut "Primary+Alt+N"
+                       :on-activate (action (workbench) (open-ai-chat workbench)))
             (menu-item :label "Open…" :shortcut "Primary+O" :on-activate (action (workbench) (choose-and-open-file workbench)))
             (menu-item :label "Open Folder…" :shortcut "Primary+Shift+O"
                        :on-activate (action (workbench) (choose-and-open-folder workbench)))
@@ -80,8 +82,9 @@
             (menu-item :label "Save All" :shortcut "Primary+Alt+S"
                        :on-activate (action (workbench) (save-all-documents workbench)))
             (menu-separator)
-            (menu-item :label "Close Tab" :shortcut "Primary+W" :enabled-function document-open
-                       :on-activate (action (workbench) (close-document workbench)))
+            (menu-item :label "Close Tab" :shortcut "Primary+W"
+                       :enabled-function (available (lambda () (selected-page (workbench-tabs workbench))))
+                       :on-activate (action (workbench) (close-active-tab workbench)))
             (menu-item :role :preferences :on-activate (action (workbench) (show-settings workbench))))
           (menu :title "View"
             (menu-item :label "Toggle Explorer" :shortcut "Primary+B"

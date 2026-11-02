@@ -92,10 +92,24 @@
     (dolist (method '("item/permissions/requestApproval" "runtime-tool" "unknown"))
       (check (not (xeon.assistants::auto-approvable-p session
                     (xeon.assistants::normalize-prompt session 1 method (xeon.assistants::jobj))))))
+    ;; Approve for me also covers Xeon's own editor/runtime tool calls.
+    (let ((tool (xeon.assistants::normalize-prompt session 2 "runtime-tool" (xeon.assistants::jobj "title" "editor_replace"))))
+      (setf (getf tool :callback) (lambda (allow) allow))
+      (check (xeon.assistants::auto-approvable-p session tool))
+      (setf (xeon.assistants::session-auto-approve session) nil)
+      (check (not (xeon.assistants::auto-approvable-p session tool)))
+      (setf (xeon.assistants::session-auto-approve session) t))
     (setf (xeon.assistants::session-mode session) :chat)
     (check (not (xeon.assistants::auto-approvable-p session
                   (xeon.assistants::normalize-prompt session 1 "item/commandExecution/requestApproval"
                     (xeon.assistants::jobj))))))
+  ;; Host tools describe their arguments; reads never ask, changes do.
+  (let ((tools (xeon.assistants:runtime-tools)))
+    (check (find "editor_replace" tools :key (lambda (tool) (xeon.assistants::jget tool "name")) :test #'equal))
+    (let ((replace (find "editor_replace" tools :key (lambda (tool) (xeon.assistants::jget tool "name")) :test #'equal)))
+      (check (equalp #("document" "old_text" "new_text") (xeon.assistants::jget replace "inputSchema" "required"))))
+    (check (xeon.assistants::runtime-tool-mutating-p "editor_save"))
+    (check (not (xeon.assistants::runtime-tool-mutating-p "editor_read"))))
   (let* ((store (merge-pathnames (format nil "chat-history-test-~36R/" (random (expt 36 10))) (uiop:temporary-directory)))
          (directory (uiop:temporary-directory))
          (session (xeon.assistants:make-session :codex directory :store store :mode :chat :model "fixture" :effort "high")))

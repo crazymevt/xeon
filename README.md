@@ -25,7 +25,8 @@ highlighting and line numbers, runtime tools (REPL, Problems, Debugger,
 Inspector) and a status bar with a language picker. The REPL connects to, or
 starts, SBCL (Swank), Clojure (nREPL) or Racket (Cadre). The Lisp menu evaluates
 or compiles the current form (Command+Return, Command+K) or the whole document
-(add Shift). Markdown documents get a live preview beside the editor: the Preview button at the
+(add Shift). **File › New AI Chat** opens a Codex or Claude chat with approvals, usage limits and
+access to the editor, REPL and debugger; see [AI chat](docs/AI-CHAT.md). Markdown documents get a live preview beside the editor: the Preview button at the
 end of the tab bar, or Shift+Command+V. Command+B and Command+J toggle the explorer and tools. Xeon remembers the window's size and position, whether it
 was maximized, the explorer and tools widths and which of them are shown. Settings
 (the gear, or Xeon › Settings…) choose the theme, editor font size, tab width and

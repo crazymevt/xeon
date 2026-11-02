@@ -4,9 +4,14 @@
 ;;; status bar.
 
 (defun update-title (workbench)
-  (let ((d (active-document workbench)))
+  (let ((d (active-document workbench))
+        (chat (active-chat workbench)))
     (setf (title (workbench-window workbench))
-          (format nil "~@[~A — ~]Xeon" (and d (document-name d))))))
+          (format nil "~@[~A — ~]Xeon"
+                  (cond (d (document-name d))
+                        ((and chat (chat-session chat))
+                         (format nil "~A chat" (provider-label (xeon.assistants:session-provider (chat-session chat)))))
+                        (chat "AI chat"))))))
 
 ;;; Status bar
 
@@ -38,6 +43,7 @@
          (combo (status-language status))
          (d (active-document workbench)))
     (with-handlers-blocked (combo :changed)
+      (setf (visible combo) (and d t))
       (if (null d)
           (setf (enabled combo) nil)
           (let* ((override (xeon.core:buffer-language-override (document-buffer d)))
@@ -45,7 +51,7 @@
                  (automatic (format nil "~A (Automatic)" (language-label (detected-language d)))))
             (setf (label-function combo)
                   (lambda (id) (if (eq id :automatic) automatic (language-label id))))
-            (unless (equal ids (items combo)) (setf (items combo) ids))
+            (unless (equal ids (coerce (items combo) 'list)) (setf (items combo) ids))
             (setf (enabled combo) t
                   (selected-index combo) (or (and override (position override ids)) 0)))))))
 
@@ -173,7 +179,8 @@
       (let* ((glyph (user-data button))
              (active (case glyph
                        (:explorer (visible (workbench-sidebar workbench)))
-                       (:terminal (visible (workbench-tools workbench))))))
+                       (:terminal (visible (workbench-tools workbench)))
+                       (:chat (active-chat workbench)))))
         (setf (image button) (if (or active (eq glyph :settings))
                                  (icon glyph :size *rail-icon-size*)
                                  (icon glyph :size *rail-icon-size* :color dim)))))))
@@ -185,6 +192,8 @@
                                 (lambda () (toggle-sidebar workbench))))
           (:widget (rail-button :terminal "Runtime tools" (format nil "Toggle runtime tools · ~A" (shortcut-label "Primary+J"))
                                 (lambda () (toggle-tools workbench))))
+          (:widget (rail-button :chat "AI Chat" (format nil "New AI chat · ~A" (shortcut-label "Primary+Alt+N"))
+                                (lambda () (with-reported-errors (workbench) (open-ai-chat workbench)))))
           (spacer)
           (:widget settings)))))
 
@@ -222,7 +231,8 @@
                (xeon.core:switch-buffer (workbench-manager workbench) (document-buffer (page-document page))))))
           (update-title workbench)
           (refresh-status workbench)
-          (refresh-preview-button workbench)))
+          (refresh-preview-button workbench)
+          (refresh-rail workbench)))
     (on tabs :page-close-request
         (lambda (e)
           (let ((page (event-value e)))
@@ -232,6 +242,9 @@
     (on tabs :page-closed
         (lambda (e)
           (let ((page (event-value e)))
+            (when (typep page 'chat-page)
+              (stop-chat page)
+              (unless (children tabs) (new-document workbench)))
             (when (typep page 'document-page)
               (let ((view (page-editor page)) (d (page-document page)))
                 (release-preview page)
@@ -350,6 +363,7 @@ editor take the difference."
         (refresh-tree (explorer-tree explorer))))
     (refresh-rail workbench)
     (restyle-previews workbench)
+    (restyle-chats workbench)
     (let ((tools (workbench-repl workbench)))
       (when tools
         (let ((shown (find-if (lambda (entry) (checked (second entry))) (tools-switches tools))))
@@ -421,6 +435,7 @@ REMEMBER-FRAME NIL neither restores nor saves the window frame and pane layout."
             (lambda (e) (declare (ignore e))
               (off *application* quit-handler)
               (finish-layout workbench)
+              (dolist (page (chat-pages workbench)) (stop-chat page))
               (stop-tools workbench)
               (dolist (d (workbench-documents workbench)) (release-document d)))))
       (dolist (signal '(:resize :state-changed))

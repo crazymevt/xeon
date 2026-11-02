@@ -182,13 +182,19 @@
       (close-page (workbench-tabs workbench) page :force t)
       t)))
 
+(defun close-active-tab (workbench)
+  "Closes the selected tab: a document, asking about unsaved changes, or a chat."
+  (let ((page (selected-page (workbench-tabs workbench))))
+    (cond ((typep page 'document-page) (close-document workbench (page-document page)))
+          (page (close-page (workbench-tabs workbench) page)))))
+
 (defun forget-document (workbench d)
   "After D's tab closed: release it, and keep one document open."
   (setf (workbench-documents workbench) (remove d (workbench-documents workbench)))
   (release-document d)
   (ignore-errors (xeon.core:close-buffer (workbench-manager workbench) (document-buffer d)
                                          :if-modified :discard))
-  (unless (workbench-documents workbench)
+  (unless (children (workbench-tabs workbench))
     (new-document workbench))
   (update-title workbench)
   (refresh-status workbench))

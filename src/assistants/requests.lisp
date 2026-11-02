@@ -137,30 +137,33 @@ schema constructs retain the explicit structured-response fallback."
       (t (or answers (jobj))))))
 
 (defun auto-approvable-p (session prompt)
-  ;; Fail closed for unknown request types, elevated permissions and runtime
-  ;; actions. This delegates only ordinary command/file approvals.
+  ;; Fail closed for unknown request types and elevated permissions. This
+  ;; delegates ordinary command/file approvals and Xeon's own editor and runtime
+  ;; tools; questions, forms and permission requests still ask.
   (and (session-auto-approve session) (eq (session-mode session) :agent)
-       (eq (getf prompt :kind) :approval) (not (getf prompt :callback))
+       (eq (getf prompt :kind) :approval)
        (let ((method (getf prompt :method)))
-         (or (and (eq (session-provider session) :codex)
+         (or (and (equal method "runtime-tool") (getf prompt :callback))
+             (and (eq (session-provider session) :codex) (not (getf prompt :callback))
                   (member method '("item/commandExecution/requestApproval" "item/fileChange/requestApproval"
                                    "execCommandApproval" "applyPatchApproval") :test #'equal)
                   (or (null (getf prompt :decisions))
                       (member "accept" (getf prompt :decisions) :test #'equal)))
-             (and (eq (session-provider session) :claude) (equal method "can_use_tool")
+             (and (eq (session-provider session) :claude) (not (getf prompt :callback)) (equal method "can_use_tool")
                   (member (jget (getf prompt :params) "tool_name")
                           '("Bash" "Edit" "Write" "MultiEdit" "NotebookEdit") :test #'equal))))))
 (defun maybe-auto-approve (session prompt)
   (when (auto-approvable-p session prompt)
     (answer-request session (getf prompt :id) (getf prompt :generation) :allow nil t)))
 (defun set-auto-approve (session enabled)
-  "Delegate ordinary command/file approvals for this live chat only."
+  "Delegate ordinary command/file approvals and Xeon's editor/runtime tools for this
+live chat only."
   (enqueue session (lambda ()
     (when (and enabled (not (eq (session-mode session) :agent)))
       (error "Approve for me requires Agent mode."))
     (setf (session-auto-approve session) (not (null enabled)))
     (session-update session :text
-      (format nil "~%[Approve for me ~A: command and file edits only; permissions and runtime actions still ask.]~%"
+      (format nil "~%[Approve for me ~A: commands, file edits and Xeon editor/runtime actions; questions and permission requests still ask.]~%"
               (if enabled "enabled" "disabled")))
     (dolist (prompt (copy-list (session-requests session))) (maybe-auto-approve session prompt)))))
 
@@ -191,21 +194,40 @@ schema constructs retain the explicit structured-response fallback."
                 (claude-control-response session id result))))
       (remove-prompt session id))))))
 
+(defparameter *runtime-tool-specs*
+  '(("runtime_state" "Read the connected REPL's status, recent output, retained results, problems from the last compile, and the debugger and inspector state." ())
+    ("repl_start" "Start a local Lisp runtime (SBCL by default) in the project folder and connect the editor's REPL to it." (("dialect" "string" nil)))
+    ("repl_evaluate" "Evaluate code in the editor's connected REPL. Results appear in runtime_state." (("code" "string" t)))
+    ("repl_interrupt" "Interrupt the REPL's current evaluation." ())
+    ("debugger_frame" "Read the locals of a frame in the paused debugger." (("index" "integer" t)))
+    ("debugger_restart" "Invoke a restart in the paused debugger." (("index" "integer" t)))
+    ("debugger_abort" "Abort the current debugger level." ())
+    ("inspector_evaluate" "Evaluate an expression and open the result in the runtime inspector." (("expression" "string" t)))
+    ("inspector_part" "Inspect a part of the current inspector object." (("index" "integer" t)))
+    ("editor_state" "List the editor's open documents (id, name, path, language, unsaved changes), the active document with its caret line and selection, and the project folder." ())
+    ("editor_read" "Read an open document's current text, including unsaved changes. DOCUMENT is an id from editor_state, a file path, or \"active\". Lines are numbered from 1." (("document" "string" t) ("start_line" "integer" nil) ("end_line" "integer" nil)))
+    ("editor_open" "Open a file in the editor and make it the active document." (("path" "string" t)))
+    ("editor_select" "Move the caret in an open document to LINE (and COLUMN), selecting through END_LINE when given, and show it." (("document" "string" t) ("line" "integer" t) ("column" "integer" nil) ("end_line" "integer" nil)))
+    ("editor_replace" "Replace OLD_TEXT, which must occur exactly once, with NEW_TEXT in an open document. The edit can be undone in the editor; the file is not saved." (("document" "string" t) ("old_text" "string" t) ("new_text" "string" t)))
+    ("editor_write" "Replace an open document's whole text. The edit can be undone in the editor; the file is not saved." (("document" "string" t) ("text" "string" t)))
+    ("editor_new" "Open a new untitled document with TEXT." (("text" "string" nil)))
+    ("editor_save" "Save an open document to its file." (("document" "string" t))))
+  "Xeon's host tools: name, description and arguments (name, JSON type, required).")
+
 (defun runtime-tools ()
-  (loop for (name description argument type) in
-    '(("runtime_state" "Read connected REPL status, recent output, debugger and inspector." nil nil)
-      ("repl_evaluate" "Evaluate code in the connected Lisp REPL after user approval." "code" "string")
-      ("repl_interrupt" "Interrupt connected REPL evaluation after user approval." nil nil)
-      ("debugger_frame" "Read locals in a paused debugger frame." "index" "integer")
-      ("debugger_restart" "Invoke a debugger restart after user approval." "index" "integer")
-      ("debugger_abort" "Abort the current debugger level after user approval." nil nil)
-      ("inspector_evaluate" "Evaluate an expression in the runtime inspector after user approval." "expression" "string")
-      ("inspector_part" "Inspect a part of the current inspector object." "index" "integer"))
-    collect (jobj "name" name "description" description
-      "inputSchema" (jobj "type" "object" "properties" (if argument (jobj argument (jobj "type" type)) (jobj))
-                          "required" (if argument (vector argument) #()) "additionalProperties" :false))))
+  (loop for (name description arguments) in *runtime-tool-specs*
+        collect (jobj "name" name "description" description
+                      "inputSchema" (jobj "type" "object"
+                                          "properties" (cons :object (loop for (argument type) in arguments
+                                                                           collect (cons argument (jobj "type" type))))
+                                          "required" (coerce (loop for (argument nil required) in arguments
+                                                                   when required collect argument) 'vector)
+                                          "additionalProperties" :false))))
+
 (defun runtime-tool-mutating-p (name)
-  (member name '("repl_evaluate" "repl_interrupt" "debugger_restart" "debugger_abort" "inspector_evaluate") :test #'equal))
+  "Tools that change the runtime, a document or a file ask first (or use Approve for me)."
+  (member name '("repl_start" "repl_evaluate" "repl_interrupt" "debugger_restart" "debugger_abort"
+                 "inspector_evaluate" "editor_replace" "editor_write" "editor_save") :test #'equal))
 (defun dispatch-runtime-tool (session name arguments completed)
   (unless (find name (runtime-tools) :key (lambda (tool) (jget tool "name")) :test #'equal)
     (funcall completed "Unknown Xeon runtime tool." t) (return-from dispatch-runtime-tool))

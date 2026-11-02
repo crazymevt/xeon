@@ -94,6 +94,7 @@
     (when (xeon.folders:project-warning project)
       (report workbench "~A" (xeon.folders:project-warning project)))
     (remember-folder workbench root-path)
+    (follow-chat-folders workbench root-path)
     (update-title workbench)
     root-path))
 

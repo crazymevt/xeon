@@ -1,0 +1,50 @@
+:root{--composer:170px}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;-webkit-font-smoothing:antialiased}
+main{max-width:900px;padding:22px 26px calc(var(--composer) + 26px);min-height:100vh}
+button{font:inherit;cursor:pointer}
+.compose-actions,.prompt-actions,.request-head{display:flex;align-items:center;gap:10px}
+
+#composer{position:fixed;z-index:8;inset:auto 0 0;background:linear-gradient(transparent,var(--bg) 16px);padding:16px 22px 14px}
+#composer-inner{max-width:856px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.12);padding:11px 13px}
+#composer-inner:focus-within{border-color:var(--accent)}
+#chat-input{display:block;resize:none;width:100%;height:68px;min-height:52px;max-height:180px;color:var(--fg);background:transparent;border:0;outline:0;font:14px/1.55 -apple-system,BlinkMacSystemFont,sans-serif;padding:0 2px}
+#chat-input::placeholder{color:var(--muted)}
+.compose-actions{margin-top:8px;justify-content:space-between}
+.compose-actions .buttons{display:flex;gap:8px}
+.hint{font-size:11px;color:var(--muted)}
+.primary{background:var(--accent);color:#fff;padding:6px 15px;border-radius:7px;font-size:12px;font-weight:600;border:0}
+.primary:hover{filter:brightness(1.08);background:var(--accent);color:#fff}
+.secondary{border:1px solid var(--border);color:var(--fg);padding:6px 12px;border-radius:7px;font-size:12px;background:transparent}
+.secondary:hover{background:var(--border)}
+button:disabled{opacity:.4;cursor:default}
+#stop{display:none}
+#jump{bottom:calc(var(--composer) + 12px);z-index:7}
+#toast{max-width:856px;margin:0 auto 8px;background:var(--surface);color:var(--warn);padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:12px;display:none}
+
+#requests{max-width:856px;margin:0 auto 10px;max-height:46vh;overflow:auto}
+.request-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:14px 16px;margin-top:8px;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.request-badge{font-size:10px;font-weight:650;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
+.request-title{font-size:13px;font-weight:650;margin:0}
+.request-summary{margin:10px 0 4px;padding:8px 10px;background:var(--code);border-radius:6px;white-space:pre-wrap;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;max-height:160px;overflow:auto}
+.request-card details{color:var(--muted);font-size:11px;margin:8px 0}
+.request-card summary{cursor:pointer}
+.request-card pre{max-height:200px;overflow:auto;white-space:pre-wrap;font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}
+.request-card fieldset{border:0;margin:12px 0;padding:0}
+.request-card legend{font-size:12px;font-weight:600;margin-bottom:8px}
+.request-card label{display:block;font-size:12px;margin:7px 0;color:var(--fg)}
+.request-card label small{display:block;color:var(--muted);margin:2px 0 0 22px}
+.request-card input[type=text],.request-card input[type=password],.request-card input[type=number],.request-card textarea{width:100%;margin-top:4px;padding:7px 9px;color:var(--fg);background:var(--code);border:1px solid var(--border);border-radius:6px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+.request-card textarea{min-height:96px;resize:vertical}
+.request-card input:focus,.request-card textarea:focus{outline:1px solid var(--accent);border-color:var(--accent)}
+.request-card input[type=radio],.request-card input[type=checkbox]{accent-color:var(--accent)}
+.prompt-actions{justify-content:flex-end;margin-top:12px}
+.request-error{font-size:12px;color:var(--warn)}
+.request-card.pending{opacity:.6}
+
+.attachment{position:relative;margin-bottom:10px}
+#attachments{display:flex;gap:8px;flex-wrap:wrap}
+.attachment img{display:block;width:84px;height:62px;object-fit:contain;background:var(--code);border:1px solid var(--border);border-radius:8px}
+.attachment button{position:absolute;top:-6px;right:-6px;margin:0;border-radius:50%;width:20px;height:20px;padding:0;background:var(--surface);border:1px solid var(--border);color:var(--fg);font-size:14px;line-height:16px}
+.user .avatar{color:var(--fg)}

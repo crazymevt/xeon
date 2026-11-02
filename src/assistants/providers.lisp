@@ -1,12 +1,16 @@
 (in-package #:xeon.assistants)
 
+(defparameter *agent-instructions*
+  "You are a coding agent inside the Xeon Lisp editor. Use Xeon's tools to work with the editor itself: editor_state and editor_read show open documents, including unsaved changes; editor_open, editor_select, editor_replace, editor_write, editor_new and editor_save work with documents in the editor, where the user sees and can undo your edits. Use runtime_state, repl_start, repl_evaluate, the debugger_* and inspector_* tools for the connected Lisp REPL and debugger. Prefer editing open documents through the editor tools. Request approval for actions when required; do not bypass the host."
+  "What Agent mode tells the provider about Xeon's host tools.")
+
 (defun provider-arguments (session)
   (ecase (session-provider session)
     (:codex '("app-server"))
     (:claude
      (append '("-p" "--input-format" "stream-json" "--output-format" "stream-json"
                "--verbose" "--include-partial-messages" "--permission-mode" "manual")
-       (when (eq (session-mode session) :chat) '("--tools" ""))
+       (if (eq (session-mode session) :chat) '("--tools" "") (list "--append-system-prompt" *agent-instructions*))
        (when (session-model session) (list "--model" (session-model session)))
        (when (session-effort session) (list "--effort" (session-effort session)))
        (when (session-conversation session) (list "--resume" (session-conversation session)))
@@ -34,7 +38,7 @@
                      (jobj "features" (jobj "shell_tool" :false "apply_patch_freeform" :false)) (jobj))
         "baseInstructions" (if (eq (session-mode session) :chat)
           "You are in Chat mode. Explain and discuss. Do not edit files or run commands. Runtime read tools may be used."
-          "You are an editor coding agent. Use Xeon's runtime tools for the connected REPL and debugger. Request approval for actions when required; do not bypass the host.")
+          *agent-instructions*)
         "dynamicTools" (if (session-conversation session) :omit (coerce (runtime-tools) 'vector))
         "threadId" (or (session-conversation session) :omit)))
 (defun initialize-provider (session)

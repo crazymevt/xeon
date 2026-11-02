@@ -7,13 +7,14 @@
 (asdf:defsystem "xeon/ui"
   :description "Native LGT editor shell; widgets and layout only, behavior stays in the backend"
   :depends-on ("xeon/core" "xeon/search" "xeon/themes" "xeon/folders" "xeon/syntax" "xeon/repl"
-               "xeon/chat-render" "lgt")
+               "xeon/assistants" "xeon/chat-render" "lgt")
   :serial t
   :components ((:file "src/ui/package") (:file "src/ui/theme") (:file "src/ui/icons")
                (:file "src/ui/state") (:file "src/ui/document") (:file "src/ui/editor")
                (:file "src/ui/explorer") (:file "src/ui/tools") (:file "src/ui/documents")
-               (:file "src/ui/preview") (:file "src/ui/workbench") (:file "src/ui/menus") (:file "src/ui/settings")
+               (:file "src/ui/preview") (:file "src/ui/chat-tools") (:file "src/ui/chat") (:file "src/ui/workbench") (:file "src/ui/menus") (:file "src/ui/settings")
                (:file "src/ui/main")
+               (:static-file "assets/chat/chat.css") (:static-file "assets/chat/chat.js")
                (:static-file "assets/fonts/material-icons/MaterialIcons-Regular.ttf")
                (:static-file "assets/fonts/material-icons/LICENSE")
                (:static-file "assets/fonts/material-icons/PROVENANCE.md"))
