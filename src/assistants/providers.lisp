@@ -9,7 +9,10 @@
     (:codex '("app-server"))
     (:claude
      (append '("-p" "--input-format" "stream-json" "--output-format" "stream-json"
-               "--verbose" "--include-partial-messages" "--permission-mode" "manual")
+               "--verbose" "--include-partial-messages" "--permission-mode" "manual"
+               ;; Without a prompt tool, -p denies anything that needs permission
+               ;; outright; stdio sends can_use_tool control requests to Xeon instead.
+               "--permission-prompt-tool" "stdio")
        (if (eq (session-mode session) :chat) '("--tools" "") (list "--append-system-prompt" *agent-instructions*))
        (when (session-model session) (list "--model" (session-model session)))
        (when (session-effort session) (list "--effort" (session-effort session)))
