@@ -120,10 +120,8 @@
          (show (if supplied show (not (pane-shown-p pane)))))
     (unless (eq show (pane-shown-p pane))
       (setf (visible pane) show)
-      ;; A native split view keeps a hidden pane's space; move the divider too.
-      (setf (divider-position (workbench-outer-split workbench))
-            (if show (workbench-sidebar-width workbench) 0))
-      (update-layout (workbench-window workbench))
+      (when show
+        (setf (divider-position (workbench-outer-split workbench)) (workbench-sidebar-width workbench)))
       (refresh-rail workbench))
     show))
 
@@ -132,12 +130,7 @@
          (show (if supplied show (not (pane-shown-p pane)))))
     (unless (eq show (pane-shown-p pane))
       (setf (visible pane) show)
-      (if show
-          (place-tools-divider workbench)
-          (let ((split (workbench-inner-split workbench)))
-            (when (plusp (widget-width split))
-              (setf (divider-position split) (widget-width split)))))
-      (update-layout (workbench-window workbench))
+      (when show (place-tools-divider workbench))
       (refresh-rail workbench))
     show))
 
@@ -365,15 +358,7 @@ REMEMBER-FRAME NIL neither restores nor saves the window frame and pane layout."
           (or (with-reported-errors (workbench) (open-document workbench file))
               (new-document workbench))
           (new-document workbench))
-;; Workaround for an LGT Cocoa bug: a tree fits its column to the table before
-      ;; the table has its final frame, leaving names cut short. Moving the divider
-      ;; once the window has settled lays the sidebar out again with real sizes.
-      (after 0.3 (lambda ()
-                   (when (and (not (destroyed-p outer)) (visible sidebar))
-                     (let ((width (workbench-sidebar-width workbench)))
-                       (setf (divider-position outer) (1+ width))
-                       (setf (divider-position outer) width)))))
-      (select-tool workbench :repl :show nil)
+(select-tool workbench :repl :show nil)
       (refresh-rail workbench)
       (update-title workbench)
       (refresh-status workbench)
