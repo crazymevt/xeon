@@ -230,6 +230,7 @@ or a Git operation runs is folded into one read after it."
   (setf (scm-status scm) status (scm-error scm) failure (scm-head scm) head
         (scm-branches scm) branches (scm-remotes scm) remotes
         (scm-groups scm) (and status (change-rows status)))
+  (update-explorer-git-status (scm-workbench scm) status)
   (refresh-change-tree scm)
   (refresh-scm-view scm)
   (refresh-branch-status (scm-workbench scm)))

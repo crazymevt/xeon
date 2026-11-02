@@ -270,6 +270,22 @@
       (check (equal "U" (xeon.ui::change-letter (xeon.ui::scm-row-change (first (xeon.ui::group-changes scm :changes))) :changes))
              "untracked files are marked U")
       (check (lgt:item-expanded-p (xeon.ui::part scm :tree) (first (xeon.ui::scm-groups scm))) "groups start open")
+      (let* ((explorer (xeon.ui::workbench-explorer wb))
+             (root (xeon.folders:project-root (xeon.ui::explorer-project explorer)))
+             (node (xeon.ui::%make-node :path (merge-pathnames "a.lisp" root))))
+        (check (equal "U" (xeon.ui::explorer-node-badge explorer node))
+               "the explorer shares the repository's untracked badge")
+        (check (xeon.ui::explorer-status-icon explorer node)
+               "the explorer renders a status glyph")
+        (check (null (xeon.ui::explorer-node-badge explorer node nil))
+               "clearing repository status clears explorer badges")
+        (let ((nested (xeon.folders::parse-git-status
+                       (format nil " M nested/file.lisp~C" #\Null))))
+          (check (equal "•" (xeon.ui::explorer-node-badge
+                             explorer (xeon.ui::%make-node
+                                       :path (merge-pathnames "nested/" root) :directory-p t)
+                             nested))
+                 "collapsed folders show changed-descendant dots")))
       (check (lgt:visible branch) "the status bar shows the branch")
       (check (search "main" (lgt:label branch-label)) (format nil "named: ~S" (lgt:label branch-label)))
       (check (not (lgt:enabled (xeon.ui::part scm :commit))) "nothing to commit before staging")

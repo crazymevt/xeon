@@ -23,6 +23,7 @@
   ((workbench :initarg :workbench :reader explorer-workbench)
    (project :initform nil :accessor explorer-project)
    (root :initform nil :accessor explorer-root)
+   (git-status :initform nil :accessor explorer-git-status)
    (generation :initform 0 :accessor explorer-generation)
    (show-hidden :initform nil :accessor explorer-show-hidden)
    (tree :accessor explorer-tree)
@@ -42,6 +43,37 @@
           ((node-directory-p node)
            (file-icon palette (if (item-expanded-p (explorer-tree explorer) node) :folder-open :folder)))
           (t (file-icon palette (node-kind node))))))
+
+(defun explorer-node-badge (explorer node &optional (status (explorer-git-status explorer)))
+  (when (and (node-path node) (explorer-project explorer))
+    (xeon.folders:git-path-badge
+     status
+     (uiop:unix-namestring
+      (enough-namestring (node-path node)
+                        (xeon.folders:project-root (explorer-project explorer))))
+     :directory-p (node-directory-p node))))
+
+(defun explorer-status-icon (explorer node)
+  (let ((badge (explorer-node-badge explorer node)))
+    (when badge
+      (glyph-image badge :font (make-font :size 11 :weight :bold) :size 16
+                         :color (palette-color
+                                 (workbench-palette (explorer-workbench explorer))
+                                 (letter-role badge))))))
+
+(defun update-explorer-git-status (workbench status)
+  "Refresh only loaded rows whose badge changed; never rebuild the tree."
+  (let ((explorer (workbench-explorer workbench)))
+    (when explorer
+      (let ((old (explorer-git-status explorer)))
+        (setf (explorer-git-status explorer) status)
+        (labels ((visit (node)
+                   (let ((new (explorer-node-badge explorer node))
+                         (previous (explorer-node-badge explorer node old)))
+                     (unless (equal new previous)
+                       (refresh-item (explorer-tree explorer) node)))
+                   (dolist (child (node-children node)) (visit child))))
+          (when (explorer-root explorer) (visit (explorer-root explorer))))))))
 
 (defun read-folder (explorer project path)
   (let ((hidden (explorer-show-hidden explorer)))
@@ -87,6 +119,7 @@
     (incf (explorer-generation explorer))
     (setf (explorer-project explorer) project
           (explorer-root explorer) root
+          (explorer-git-status explorer) nil
           (text (explorer-heading explorer)) (string-upcase name))
     (setf (roots (explorer-tree explorer)) (list root))
     (load-node explorer root)
@@ -165,7 +198,12 @@ as their parents arrive."
                               :key-function #'node-key
                               :label-function #'node-name
                               :children-function #'visible-children
-                              :icon-function (lambda (node) (node-icon explorer node))))
+                              :icon-function (lambda (node) (node-icon explorer node))
+                              :columns (list
+                                        (make-column "Name" #'node-name
+                                                     :icon-function (lambda (node) (node-icon explorer node)))
+                                        (make-column "Status" (constantly "") :width 24 :alignment :right
+                                                     :icon-function (lambda (node) (explorer-status-icon explorer node))))))
          (panel (ui (vbox :spacing 0
                       (hbox :padding '(10 12 6 12) (:widget heading))
                       (hbox :padding '(0 8 6 12) :spacing 6
