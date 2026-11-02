@@ -5,7 +5,7 @@ QUIET_RUN ?= $(wildcard /Users/jessie/.local/bin/quiet-run.sh)
 QUIET_PREFIX = $(if $(QUIET_RUN),"$(QUIET_RUN)" --)
 LISP_FLAGS = --noinform --no-sysinit --no-userinit --non-interactive
 
-.PHONY: test repl-test terminal-build terminal-test http-bundle http-test
+.PHONY: test repl-test terminal-build terminal-test http-bundle http-test database-test
 test:
 	@$(QUIET_PREFIX) "$(SBCL)" $(LISP_FLAGS) --load tests/run.lisp
 
@@ -23,6 +23,9 @@ http-bundle:
 
 http-test:
 	@$(QUIET_PREFIX) "$(PYTHON)" tools/check-http.py
+
+database-test:
+	@$(QUIET_PREFIX) "$(SBCL)" $(LISP_FLAGS) --load tests/run-databases.lisp
 
 .PHONY: run ui-test
 FILE ?=

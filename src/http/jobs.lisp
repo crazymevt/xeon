@@ -8,8 +8,9 @@
 (defun job-cancelled-p (job)
   (sb-thread:with-mutex ((request-job-lock job)) (request-job-cancelled job)))
 
-(defun start-request (request)
-  "Snapshot a request and start one worker. Poll JOB-SNAPSHOT on the UI thread."
+(defun start-request (request &key on-done)
+  "Snapshot a request and start one worker. ON-DONE receives the terminal job on
+its worker thread; UI clients must marshal the notification to their UI thread."
   (validate-request request)
   (initialize-transport)
   (let ((snapshot (copy-request request)) (job (%make-job)))
@@ -29,7 +30,9 @@
                  (setf (request-job-state job) (cond ((request-job-cancelled job) :cancelled)
                                                            (failure :failed) (t :complete))
                        (request-job-response job) (unless (request-job-cancelled job) response)
-                       (request-job-error job) (unless (request-job-cancelled job) failure)))))
+                       (request-job-error job) (unless (request-job-cancelled job) failure))))
+             ;; Notify outside the lock so clients may safely read JOB-SNAPSHOT.
+             (when on-done (funcall on-done job)))
            :name "Xeon HTTP request"))
     job))
 

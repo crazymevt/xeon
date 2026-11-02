@@ -524,3 +524,19 @@
     (let ((text "(define (greet name) name) (greet "))
       (check (search "greet (name)" (lookup text (length text) nil "help.rkt"))))
     (check (null (lookup (make-string 70000 :initial-element #\Space) 69000)))))
+
+(defun test-sql-syntax ()
+  (let ((text (format nil "select name FROM \"Users\" -- who~%WHERE note = 'it''s
+two lines\\' AND n > 1.5 /* block~%comment */ AND x IS NULL;")))
+    (check (eq :sql (xeon.syntax:detect-language (make-buffer :name "query.sql"))))
+    (check-token-style text "select" 1 "q.sql")
+    (check-token-style text "FROM" 1 "q.sql")
+    (check-token-style text "name" 0 "q.sql")
+    (check-token-style text "\"Users\"" 2 "q.sql")
+    (check-token-style text "-- who" 3 "q.sql")
+    ;; Doubled quotes, newlines and backslashes stay inside an SQL string.
+    (check-token-style text (format nil "'it''s~%two lines\\'") 2 "q.sql")
+    (check-token-style text "AND" 1 "q.sql")
+    (check-token-style text "1.5" 4 "q.sql")
+    (check-token-style text (format nil "/* block~%comment */") 3 "q.sql")
+    (check-token-style text "NULL" 4 "q.sql")))

@@ -14,6 +14,9 @@
     (:projects . #xe1a1)
     (:source-control . #xebac) (:branch . #xe0b6) (:sync . #xe627) (:more . #xe5d3)
     (:check . #xe5ca) (:publish . #xe2c3) (:commit . #xeaf5)
+    (:database . #xe1db) (:table . #xe265) (:view . #xf1c5) (:query . #xe745)
+    (:api . #xf1b7) (:http . #xe902) (:send . #xe163) (:key . #xe73c)
+    (:computer . #xe30a) (:folder-special . #xe617)
     (:lisp . #xe86f) (:clojure . #xe86f) (:racket . #xe86f)))
 
 (defparameter *icon-font* "Material Icons")
@@ -50,13 +53,15 @@ appearance and selection; with one it keeps that color."
     (:clojure :code :syntax-string) (:racket :code :syntax-parameter)
     (:code :code :syntax-number) (:data :data :syntax-symbol)
     (:image :image :syntax-string) (:archive :archive :syntax-function)
-    (:text :text :syntax-symbol) (:git :git :syntax-number)))
+    (:text :text :syntax-symbol) (:git :git :syntax-number)
+    (:database :database :syntax-string) (:table :table :syntax-function) (:view :view :syntax-keyword)))
 
 (defparameter *native-file-icon-colors*
   '((:folder . :system-blue) (:folder-open . :system-blue) (:file . :system-gray)
     (:lisp . :system-purple) (:clojure . :system-green) (:racket . :system-red)
     (:code . :system-orange) (:data . :system-teal) (:image . :system-pink)
-    (:archive . :system-brown) (:text . :system-gray) (:git . :system-orange))
+    (:archive . :system-brown) (:text . :system-gray) (:git . :system-orange)
+    (:database . :system-teal) (:table . :system-blue) (:view . :system-purple))
   "File icon colors in the System theme, from the platform palette; folders are blue as
 in the Finder.")
 

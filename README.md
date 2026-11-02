@@ -8,6 +8,21 @@ The GUI is built with [LGT](../lgt), the Lisp GUI Toolkit, using native macOS
 controls. The backend was copied from Xeon's LUT-based tree; see
 [PROVENANCE.md](PROVENANCE.md).
 
+## API requests
+
+Choose **File → New API Request**, or open a `.http` / `.rest` collection.
+**Builder** provides editable query parameters, headers, collection variables and
+a request body. **Apply** commits one undoable source edit; **Revert** reloads the
+source. Apply or revert drafts before saving, closing, sending or changing modes.
+**Pro · Source** edits the same collection directly; Send uses the request at the
+cursor. Switching modes does not rewrite the source.
+
+The response inspector shows HTTP status, elapsed time and byte count, with
+selectable Body / Headers and Copy. Send runs on a worker; Cancel is cooperative.
+There is no idle request polling. Variables are saved in the collection, so avoid
+putting private credentials in files you share. Response bytes are not saved into
+the collection, and HTTP payload whitespace is never trimmed on save.
+
 ## Run the editor
 
 LGT must be visible to Quicklisp (for example linked into
@@ -68,7 +83,7 @@ wrapper on other machines. CI uses the portable `tools/ci-run.py` wrapper.
 | `xeon/assistants` | Codex/Claude process protocols, sessions, approvals and history |
 | `xeon/chat-render` | Escaped Markdown and optional HTML presentation |
 | `xeon/http` | HTTP collections, request builder and native libcurl jobs |
-| `xeon/databases` | Native SQLite adapter |
+| `xeon/databases` | Native SQLite driver, per-connection worker threads and stored connections (`make database-test`) |
 | `xeon/terminal` | libvterm with PTY/ConPTY transport |
 | `xeon/docset` | Vendored local documentation reader |
 

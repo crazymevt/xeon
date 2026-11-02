@@ -19,7 +19,9 @@
    (explorer :initform nil :accessor workbench-explorer)
    (projects :initform nil :accessor workbench-projects)
    (source-control :initform nil :accessor workbench-source-control)
-   ;; The sidebar shows one view at a time: :explorer, :projects or :source-control.
+   (databases :initform nil :accessor workbench-databases)
+   (api :initform nil :accessor workbench-api)
+   ;; The sidebar shows one view at a time: :explorer, :projects, :source-control, :databases or :api.
    (sidebar-stack :accessor workbench-sidebar-stack)
    (sidebar-pages :initform '() :accessor workbench-sidebar-pages)
    (sidebar-view :initform :explorer :accessor workbench-sidebar-view)

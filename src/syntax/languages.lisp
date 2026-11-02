@@ -11,7 +11,7 @@
     (:racket "Racket") (:json "JSON / JSONC") (:python "Python")
     (:javascript "JavaScript / TypeScript") (:c-like "C / C++ / Java / C#")
     (:shell "Shell") (:markdown "Markdown") (:yaml "YAML")
-    (:config "TOML / INI") (:markup "HTML / XML") (:css "CSS / SCSS")))
+    (:config "TOML / INI") (:markup "HTML / XML") (:css "CSS / SCSS") (:sql "SQL")))
 
 (defun language-choices ()
   "Return supported language IDs and display labels."
@@ -35,7 +35,7 @@ This changes neither document text nor its modified state."
                 (:python "py" "pyw") (:javascript "js" "mjs" "cjs" "jsx" "ts" "tsx")
                 (:c-like "c" "h" "cc" "cpp" "hpp" "java" "cs") (:shell "sh" "bash" "zsh")
                 (:markdown "md" "markdown") (:yaml "yml" "yaml") (:config "toml" "ini")
-                (:markup "html" "htm" "xml" "svg") (:css "css" "scss"))
+                (:markup "html" "htm" "xml" "svg") (:css "css" "scss") (:sql "sql"))
               when (member extension extensions :test #'equal) return language)
         (when (and (>= (length prefix) 5) (string= "#lang" prefix :end2 5)
                    (or (= (length prefix) 5) (find (char prefix 5) '(#\Space #\Tab #\Newline #\Return)))) :racket)
@@ -76,6 +76,16 @@ This changes neither document text nor its modified state."
      "throw" "import" "package" "interface" "extends" "implements")
     (:shell "if" "then" "else" "elif" "fi" "for" "in" "do" "done" "while" "case" "esac" "function" "select"
      "export" "local" "return" "break" "continue" "source" "readonly")
+    (:sql "select" "from" "where" "and" "or" "not" "in" "is" "like" "glob" "between" "exists" "as" "on"
+     "join" "inner" "left" "right" "full" "outer" "cross" "natural" "using" "group" "by" "order" "having"
+     "limit" "offset" "asc" "desc" "distinct" "all" "union" "intersect" "except" "insert" "into" "values"
+     "update" "set" "delete" "replace" "upsert" "returning" "create" "alter" "drop" "rename" "add" "column"
+     "table" "view" "index" "unique" "trigger" "temp" "temporary" "if" "primary" "key" "foreign"
+     "references" "default" "check" "constraint" "collate" "autoincrement" "begin" "commit" "rollback"
+     "transaction" "savepoint" "release" "case" "when" "then" "else" "end" "cast" "with" "recursive"
+     "pragma" "explain" "analyze" "vacuum" "attach" "detach" "conflict" "do" "nothing" "escape" "over"
+     "partition" "window" "filter" "integer" "int" "text" "real" "blob" "numeric" "varchar" "char"
+     "boolean" "date" "timestamp" "without" "rowid" "strict")
     (:json "true" "false" "null") (:yaml "true" "false" "null" "yes" "no") (:config "true" "false")))
 
 (defun lisp-language-p (language) (member language '(:common-lisp :clojure :racket)))
@@ -86,13 +96,16 @@ This changes neither document text nor its modified state."
 (defun keyword-token-p (token language)
   (or (and (lisp-language-p language) (plusp (length token)) (char= (char token 0) #\:))
       (let ((table (cdr (assoc language *keyword-tables*))))
-        (when table (gethash (if (eq language :common-lisp) (string-downcase token) token) table)))))
+        (when table (gethash (if (member language '(:common-lisp :sql)) (string-downcase token) token) table)))))
 (defparameter *number-pattern*
   (cl-ppcre:create-scanner "(?i)^[+-]?(?:#[box][0-9a-f]+|#[0-9]+r[0-9a-z]+|0[xob][0-9a-f]+|[0-9]+/[0-9]+|(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[esfdl][+-]?[0-9]+)?[mn]?)$"))
 (defun token-style (token language)
   (cond ((keyword-token-p token language) 1)
         ((or (cl-ppcre:scan *number-pattern* token)
-             (member token (if (eq language :common-lisp) '("nil" "t") '("nil" "true" "false" "null" "None" "True" "False" "#t" "#f" "#true" "#false"))
-                     :test (if (eq language :common-lisp) #'string-equal #'string=))) 4)
+             (member token (case language
+                             (:common-lisp '("nil" "t"))
+                             (:sql '("null" "true" "false"))
+                             (t '("nil" "true" "false" "null" "None" "True" "False" "#t" "#f" "#true" "#false")))
+                     :test (if (member language '(:common-lisp :sql)) #'string-equal #'string=))) 4)
         ((or (lisp-language-p language) (eq language :css)) 5)
         (t 0)))

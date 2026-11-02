@@ -45,7 +45,9 @@ Bound interactive collections to 2 MiB; large ordinary documents remain unaffect
           (declare (ignore end))
           (cond
             ((uiop:string-prefix-p "###" value)
-             (finish begin) (setf start begin name (trim-line (subseq value 3))))
+             (finish begin)
+             (let ((label (trim-line (subseq value 3))))
+               (setf start begin name (unless (zerop (length label)) label))))
             (in-body nil)
             ((zerop (length value))
              (when request (setf in-body t body-start next)))
@@ -83,11 +85,28 @@ Bound interactive collections to 2 MiB; large ordinary documents remain unaffect
              (let* ((close (search "}}" text :start2 (+ open 2)))
                     (name (and close (trim-line (subseq text (+ open 2) close))))
                     (value (and name (assoc name variables :test #'string=))))
-               (unless value (fail-request "Undefined or unterminated request variable"))
+               ;; Names are not secret; values never appear in messages.
+               (unless close (fail-request "Unterminated {{ in request"))
+               (unless value
+                 (fail-request (format nil "Undefined variable {{~A}}. Define it with @~:*~A = value or in the environment"
+                                       (if (> (length name) 64) (subseq name 0 64) name))))
                (when (or (member name stack :test #'string=) (> (length stack) 16))
                  (fail-request "Cyclic or excessively nested request variable"))
                (write-string (expand-template (cdr value) variables (cons name stack)) out)
                (setf start (+ close 2))))))
+
+(defun basic-credentials (name value)
+  "As REST Client does, `Authorization: Basic user:password` is encoded when sent, so a
+collection can keep {{user}}:{{password}} placeholders. Base64 never contains a colon."
+  (let ((prefix "Basic "))
+    (if (and (string-equal name "Authorization")
+             (> (length value) (length prefix))
+             (string-equal prefix value :end2 (length prefix))
+             (position #\: value :start (length prefix)))
+        (let* ((credentials (subseq value (length prefix)))
+               (colon (position #\: credentials)))
+          (basic-authorization (subseq credentials 0 colon) (subseq credentials (1+ colon))))
+        value)))
 
 (defun resolve-entry (entry file-variables &key variables (timeout-ms 30000) ca-file)
   "Return a fresh validated request. Explicit private variables override file definitions."
@@ -95,8 +114,9 @@ Bound interactive collections to 2 MiB; large ordinary documents remain unaffect
          (all (append variables file-variables)))
     (flet ((expand (value) (expand-template value all)))
       (setf (request-url request) (expand (request-url request))
-            (request-headers request) (mapcar (lambda (header) (cons (car header) (expand (cdr header))))
-                                            (request-headers request))
+            (request-headers request) (mapcar (lambda (header)
+                                                (cons (car header) (basic-credentials (car header) (expand (cdr header)))))
+                                              (request-headers request))
             (request-body request) (when (request-body request) (expand (request-body request)))
             (request-timeout-ms request) timeout-ms (request-ca-file request) ca-file))
     (validate-request request)))

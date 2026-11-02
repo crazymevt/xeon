@@ -61,6 +61,8 @@
     (refresh-status workbench)))
 
 (defun add-document (workbench buffer)
+  (when (member (pathname-type (or (xeon.core:buffer-pathname buffer) "")) '("http" "rest") :test #'equalp)
+    (return-from add-document (page-document (open-api-workspace workbench :buffer buffer))))
   (let* ((d (make-instance 'document :workbench workbench :buffer buffer
                                      :on-change (lambda (d) (document-changed workbench d))))
          (view (make-editor-view workbench d))
@@ -111,16 +113,19 @@
             (when scratch (close-document workbench scratch t))
             (remember-file workbench path))))))
 
-(defun trim-on-save-p (workbench)
-  (xeon.themes:trim-trailing-whitespace-on-save (workbench-themes workbench)))
+(defun trim-on-save-p (workbench &optional document)
+  ;; HTTP bodies are payloads: an editor preference must not change their bytes.
+  (and (not (typep (and document (find-document-page workbench document)) 'api-page))
+       (xeon.themes:trim-trailing-whitespace-on-save (workbench-themes workbench))))
 
 (defun save-document (workbench &optional (d (active-document workbench)))
   "Saves D. Returns true if it was saved."
+  (unless (api-draft-ready workbench d) (return-from save-document nil))
   (cond ((null d) nil)
         ((null (document-path d)) (save-document-as workbench d))
         (t
          (handler-case
-             (progn (xeon.core:save-buffer (document-buffer d) :trim-whitespace (trim-on-save-p workbench))
+             (progn (xeon.core:save-buffer (document-buffer d) :trim-whitespace (trim-on-save-p workbench d))
                     (saved workbench d)
                     t)
            (xeon.core:file-conflict (condition)
@@ -131,13 +136,14 @@
                                     :type :warning :parent (workbench-window workbench)
                                     :buttons '(("Cancel" . :cancel) ("Overwrite" . :overwrite))))
                (xeon.core:save-buffer (document-buffer d) :overwrite-external t
-                                                          :trim-whitespace (trim-on-save-p workbench))
+                                                          :trim-whitespace (trim-on-save-p workbench d))
                (saved workbench d)
                (return-from save-document t))
              nil)))))
 
 (defun save-document-as (workbench &optional (d (active-document workbench)))
   "Asks where to save D, then saves it there. Returns true if it was saved."
+  (unless (api-draft-ready workbench d) (return-from save-document-as nil))
   (when d
     (let ((path (choose-file :mode :save :parent (workbench-window workbench)
                              :name (document-name d)
@@ -145,7 +151,7 @@
                                             (explorer-folder workbench)))))
       (when path
         (xeon.core:save-buffer-as (document-buffer d) path :if-exists :overwrite
-                                                           :trim-whitespace (trim-on-save-p workbench))
+                                                           :trim-whitespace (trim-on-save-p workbench d))
         (saved workbench d)
         (remember-file workbench path)
         ;; The name decides the language.
@@ -154,18 +160,22 @@
 
 (defun saved (workbench d)
   (update-document-tab workbench d)
+  (when (typep (find-document-page workbench d) 'api-page) (refresh-api-sidebar workbench))
   (update-title workbench)
   (refresh-status workbench)
   (refresh-source-control workbench)
   (report workbench "Saved ~A" (document-name d)))
 
 (defun save-all-documents (workbench)
+  (unless (every (lambda (d) (api-draft-ready workbench d)) (workbench-documents workbench))
+    (return-from save-all-documents nil))
   (dolist (d (workbench-documents workbench))
     (when (document-needs-saving-p d)
       (unless (save-document workbench d) (return)))))
 
 (defun confirm-closing (workbench d)
   "Asks whether to save D's changes. True when D may close."
+  (unless (api-draft-ready workbench d) (return-from confirm-closing nil))
   (if (not (document-needs-saving-p d))
       t
       (progn

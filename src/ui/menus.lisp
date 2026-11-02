@@ -59,7 +59,8 @@
 
 (defun make-menus (workbench)
   (let ((document-open (available (lambda () (active-document workbench))))
-        (can-evaluate (available (lambda () (repl-matches-document-p workbench))))
+        (can-evaluate (available (lambda () (or (repl-matches-document-p workbench) (active-query workbench)
+                                                  (active-api-page workbench)))))
         (can-compile (available (lambda ()
                                   (and (repl-matches-document-p workbench)
                                        (member :compile (getf (repl-snapshot (workbench-repl workbench))
@@ -69,6 +70,8 @@
             (menu-item :label "New" :shortcut "Primary+N" :on-activate (action (workbench) (new-document workbench)))
             (menu-item :label "New AI Chat" :shortcut "Primary+Alt+N"
                        :on-activate (action (workbench) (open-ai-chat workbench)))
+            (menu-item :label "New API Collection…"
+                       :on-activate (action (workbench) (new-api-request workbench)))
             (menu-item :label "Open…" :shortcut "Primary+O" :on-activate (action (workbench) (choose-and-open-file workbench)))
             (menu-item :label "Open Folder…" :shortcut "Primary+Shift+O"
                        :on-activate (action (workbench) (choose-and-open-folder workbench)))
@@ -95,6 +98,11 @@
                        :on-activate (action (workbench) (show-sidebar-view workbench :projects)))
             (menu-item :label "Source Control" :shortcut "Primary+Shift+G"
                        :on-activate (action (workbench) (show-sidebar-view workbench :source-control)))
+            (menu-item :label "Databases" :shortcut "Primary+Shift+D"
+                       :on-activate (action (workbench) (show-sidebar-view workbench :databases)))
+            (menu-item :label "API" :shortcut "Primary+Shift+A"
+                       :on-activate (action (workbench) (show-sidebar-view workbench :api)))
+            (menu-item :label "API Environments" :on-activate (action (workbench) (open-environments workbench)))
             (menu-item :label "Toggle Runtime Tools" :shortcut "Primary+J"
                        :on-activate (action (workbench) (toggle-tools workbench)))
             (menu-item :label "Toggle Markdown Preview" :shortcut "Primary+Shift+V"
@@ -109,10 +117,22 @@
             (menu-item :label "Refresh Explorer" :on-activate (action (workbench) (refresh-explorer workbench)))
             (menu-item :label "Refresh Projects" :on-activate (action (workbench) (discover-projects workbench :force t))))
           (menu :title "Lisp"
+            ;; In a query tab the same keys run the SQL.
             (menu-item :label "Evaluate Form" :shortcut "Primary+Return" :enabled-function can-evaluate
-                       :on-activate (action (workbench) (send-editor-source workbench :form nil)))
+                       :on-activate (action (workbench)
+                                      (cond ((active-query workbench) (run-query (active-query workbench)))
+                                            ((active-api-page workbench)
+                                             ;; In an API tab the same key sends the request.
+                                             (let ((page (active-api-page workbench)))
+                                               (unless (api-pro-p page) (api-apply page))
+                                               (api-send page)))
+                                            (t (send-editor-source workbench :form nil)))))
             (menu-item :label "Evaluate Buffer" :shortcut "Primary+Shift+Return" :enabled-function can-evaluate
-                       :on-activate (action (workbench) (send-editor-source workbench :buffer nil)))
+                       :on-activate (action (workbench)
+                                      (let ((query (active-query workbench)))
+                                        (if query
+                                            (run-query query :all t)
+                                            (send-editor-source workbench :buffer nil)))))
             (menu-item :label "Compile Form" :shortcut "Primary+K" :enabled-function can-compile
                        :on-activate (action (workbench) (send-editor-source workbench :form t)))
             (menu-item :label "Compile Buffer" :shortcut "Primary+Shift+K" :enabled-function can-compile

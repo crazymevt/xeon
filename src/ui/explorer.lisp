@@ -130,6 +130,7 @@
     (follow-chat-folders workbench root-path)
     (projects-folder-changed workbench)
     (source-control-folder-changed workbench)
+    (api-folder-changed workbench)
     (update-title workbench)
     root-path))
 

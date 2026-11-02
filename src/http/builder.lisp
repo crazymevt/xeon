@@ -110,9 +110,60 @@ Refuse stale forms and ambiguous ### body delimiters instead of losing data."
                 (write-char (if (> n 1) (char alphabet (ldb (byte 6 6) bits)) #\=) out)
                 (write-char (if (> n 2) (char alphabet (ldb (byte 6 0) bits)) #\=) out))))))
 
-(defun replace-builder-request (buffer index request variables &key expected-revision)
-  "Commit request and collection variables as one undoable, revision-checked edit.
-Comments, other requests and body lines beginning with @ are retained."
+(defun entry-request-line (source entry)
+  "The offset of ENTRY's METHOD URL line in SOURCE."
+  (+ (entry-start entry)
+     (first (find-if (lambda (line)
+                       (let ((value (fourth line)))
+                         (and (plusp (length value)) (not (find (char value 0) "#@")))))
+                     (source-lines (subseq source (entry-start entry) (entry-end entry)))))))
+
+(defun source-newline (source)
+  (if (search (format nil "~C~%" #\Return) source) (format nil "~C~%" #\Return) (string #\Newline)))
+
+(defun rename-entry (buffer index name)
+  "Gives the INDEXth request the ### NAME line, editing only that line. A blank NAME
+keeps an unnamed separator; the request is then named after its method and URL."
+  (let* ((name (trim-line (or name "")))
+         (source (xeon.core:buffer-text buffer))
+         (entry (nth index (parse-collection source))))
+    (unless entry (fail-request "Select an existing request"))
+    (when (find-if (lambda (c) (member c '(#\Return #\Newline #\Null))) name)
+      (fail-request "Request names are a single line"))
+    (let* ((start (entry-start entry))
+           (line-end (or (position #\Newline source :start start) (length source)))
+           (content-end (if (and (> line-end start) (char= #\Return (char source (1- line-end))))
+                            (1- line-end) line-end))
+           (line (trim-line (subseq source start line-end)))
+           (header-p (uiop:string-prefix-p "###" line))
+           (newline (source-newline source)))
+      (cond ((and header-p (string= name (trim-line (subseq line 3)))))
+            ;; A blank name keeps the separator; only the name goes.
+            (header-p (xeon.core:replace-range buffer start content-end
+                                               (if (zerop (length name)) "###" (format nil "### ~A" name))))
+            ((or (zerop (length name)) (string= name (entry-name entry))))
+            (t (let ((at (entry-request-line source entry)))
+                 (xeon.core:replace-range buffer at at (format nil "### ~A~A" name newline)))))))
+  index)
+
+(defun duplicate-entry (buffer index)
+  "Copies the INDEXth request after itself, named \"<name> copy\". Returns the copy's index."
+  (let* ((source (xeon.core:buffer-text buffer))
+         (entry (nth index (parse-collection source))))
+    (unless entry (fail-request "Select an existing request"))
+    ;; The copy's request text is byte-for-byte the original's, body included.
+    (let* ((newline (source-newline source))
+           (end (entry-end entry))
+           (copy (format nil "~:[~A~;~*~]### ~A copy~A~A"
+                         (or (zerop end) (char= #\Newline (char source (1- end)))) newline
+                         (entry-name entry) newline
+                         (subseq source (entry-request-line source entry) end))))
+      (xeon.core:replace-range buffer end end copy)
+      (1+ index))))
+
+(defun replace-builder-request (buffer index request variables &key expected-revision name)
+  "Commit request, its NAME (unless NIL) and collection variables as one undoable,
+revision-checked edit. Comments, other requests and body lines beginning with @ are retained."
   (when (and expected-revision (/= expected-revision (xeon.core:buffer-revision buffer)))
     (fail-request "Source changed while the builder was being edited; return to Pro mode"))
   (dolist (pair variables)
@@ -124,6 +175,7 @@ Comments, other requests and body lines beginning with @ are retained."
   (let* ((scratch (xeon.core:copy-buffer buffer))
          (old (nth-value 1 (parse-collection (xeon.core:buffer-text scratch)))))
     (replace-entry-request scratch index request)
+    (when name (rename-entry scratch index name))
     (unless (equal variables old)
       (let* ((source (xeon.core:buffer-text scratch))
              (newline (if (search (format nil "~C~%" #\Return) source)

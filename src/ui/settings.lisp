@@ -23,12 +23,29 @@
                                                                         choices :key #'first :test #'equal)
                                                               0)))
          (font-setting (xeon.themes:editor-font themes))
+         ;; Query once per opening, never during idle updates.
+         (families (font-families))
+         (saved-family (first font-setting))
+         (font-choices (cons nil (if (and saved-family
+                                        (not (member saved-family families :test #'string-equal)))
+                                   (cons saved-family families)
+                                   families)))
+         (family (make-instance 'combo-box :name :editor-font
+                                :items font-choices
+                                :label-function (lambda (name) (or name "Default (monospace)"))
+                                :selected-index (or (position saved-family font-choices :test #'equalp) 0)))
          (size (make-instance 'spin-button :min 8 :max 36 :value (or (second font-setting) 13) :digits 0))
          (tab (make-instance 'spin-button :min 1 :max 16 :value (xeon.themes:editor-tab-size themes) :digits 0))
          (trim (make-instance 'check-box :label "Trim trailing whitespace on save"
                                          :checked (xeon.themes:trim-trailing-whitespace-on-save themes))))
     (on theme :changed
         (lambda (e) (when (event-value e) (save-settings workbench :theme (first (event-value e))))))
+    (on family :changed
+        (lambda (e)
+          (let ((name (event-value e)))
+            (save-settings workbench :editor-font
+                           (when name (list name (round (value size)))))
+            (unless name (setf (value size) 13)))))
     (on size :changed
         (lambda (e)
           (save-settings workbench :editor-font
@@ -36,10 +53,11 @@
                                (round (event-value e))))))
     (on tab :changed (lambda (e) (save-settings workbench :tab-size (round (event-value e)))))
     (on trim :toggled (lambda (e) (save-settings workbench :trim-trailing-whitespace-on-save (and (event-value e) t))))
-    (ui (vbox :padding 16 :spacing 12 :width 320
+    (ui (vbox :padding 16 :spacing 12 :width 420
           (label :text "Settings" :font (make-font :size 15 :weight :bold))
           (grid :columns 2 :column-spacing 12 :row-spacing 10
             (label :text "Theme" :halign :end :valign :center) (:widget theme :hexpand t)
+            (label :text "Editor font" :halign :end :valign :center) (:widget family :hexpand t)
             (label :text "Editor font size" :halign :end :valign :center) (:widget size)
             (label :text "Tab width" :halign :end :valign :center) (:widget tab))
           (:widget trim)

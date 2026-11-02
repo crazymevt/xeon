@@ -9,6 +9,11 @@
     (setf (title (workbench-window workbench))
           (format nil "~@[~A — ~]Xeon"
                   (cond (d (document-name d))
+                        ((typep (selected-page (workbench-tabs workbench)) '(or database-page query-page))
+                         (let ((page (selected-page (workbench-tabs workbench))))
+                           (if (typep page 'query-page)
+                               (query-tab-label (page-profile page))
+                               (xeon.databases:profile-name (page-profile page)))))
                         ((and chat (chat-session chat))
                          (format nil "~A chat" (provider-label (xeon.assistants:session-provider (chat-session chat)))))
                         (chat "AI chat"))))))
@@ -144,7 +149,9 @@
     (when show
       (case (workbench-sidebar-view workbench)
         (:projects (discover-projects workbench))
-        (:source-control (refresh-source-control workbench))))
+        (:source-control (refresh-source-control workbench))
+        (:databases (ensure-databases-loaded workbench))
+        (:api (ensure-api-loaded workbench))))
     show))
 
 (defun sidebar-view-shown-p (workbench view)
@@ -152,7 +159,7 @@
        (pane-shown-p (workbench-sidebar workbench))))
 
 (defun show-sidebar-view (workbench view)
-  "Shows the sidebar with VIEW, :EXPLORER, :PROJECTS or :SOURCE-CONTROL, in it."
+  "Shows the sidebar with VIEW, :EXPLORER, :PROJECTS, :SOURCE-CONTROL, :DATABASES or :API, in it."
   (let ((page (getf (workbench-sidebar-pages workbench) view)))
     (unless page (error "Unknown sidebar view ~S." view))
     (unless (eq view (workbench-sidebar-view workbench))
@@ -215,7 +222,7 @@
     (dolist (button (rail-buttons workbench))
       (let* ((glyph (user-data button))
              (active (case glyph
-                       ((:explorer :projects :source-control) (sidebar-view-shown-p workbench glyph))
+                       ((:explorer :projects :source-control :databases :api) (sidebar-view-shown-p workbench glyph))
                        (:terminal (visible (workbench-tools workbench)))
                        (:chat (active-chat workbench)))))
         (setf (image button) (if (or active (eq glyph :settings))
@@ -232,6 +239,10 @@
           (:widget (rail-button :source-control "Source Control"
                                 (format nil "Source Control · ~A" (shortcut-label "Primary+Shift+G"))
                                 (sidebar-rail-action workbench :source-control)))
+          (:widget (rail-button :database "Databases" (format nil "Databases · ~A" (shortcut-label "Primary+Shift+D"))
+                                (sidebar-rail-action workbench :databases)))
+          (:widget (rail-button :api "API" (format nil "API requests · ~A" (shortcut-label "Primary+Shift+A"))
+                                (sidebar-rail-action workbench :api)))
           (:widget (rail-button :terminal "Runtime tools" (format nil "Toggle runtime tools · ~A" (shortcut-label "Primary+J"))
                                 (lambda () (toggle-tools workbench))))
           (:widget (rail-button :chat "AI Chat" (format nil "New AI chat · ~A" (shortcut-label "Primary+Alt+N"))
@@ -280,12 +291,19 @@
           (let ((page (event-value e)))
             (when (typep page 'document-page)
               (unless (confirm-closing workbench (page-document page))
-                (veto e))))))
+                (veto e)))
+            (when (and (typep page 'environments-page) (environments-dirty page)
+                       (not (confirm "Discard the unsaved environment changes?"
+                                     :yes "Discard" :parent (workbench-window workbench))))
+              (veto e)))))
     (on tabs :page-closed
         (lambda (e)
           (let ((page (event-value e)))
-            (when (typep page 'chat-page)
-              (stop-chat page)
+            (when (typep page 'api-page) (release-api-page page))
+            (when (typep page '(or database-page query-page))
+              (release-database-page page))
+            (when (typep page '(or chat-page database-page query-page environments-page))
+              (when (typep page 'chat-page) (stop-chat page))
               (unless (children tabs) (new-document workbench)))
             (when (typep page 'document-page)
               (let ((view (page-editor page)) (d (page-document page)))
@@ -370,16 +388,16 @@ configuration directory.")
     (ignore-errors (restore-window-frame (workbench-window workbench) (getf saved :frame))))
   (setf (divider-position (workbench-outer-split workbench)) (workbench-sidebar-width workbench))
   (let ((view (getf saved :sidebar-view)))
-    (when (and (member view '(:explorer :projects :source-control)) (not (eq view (workbench-sidebar-view workbench))))
+    (when (and (member view '(:explorer :projects :source-control :databases :api)) (not (eq view (workbench-sidebar-view workbench))))
       (setf (workbench-sidebar-view workbench) view)
       (select-page (workbench-sidebar-stack workbench) (getf (workbench-sidebar-pages workbench) view))))
   (when (and saved (not (getf saved :sidebar-shown))) (toggle-sidebar workbench nil))
   (when (and saved (not (getf saved :tools-shown))) (toggle-tools workbench nil)))
 
 (defun keep-pane-widths (workbench)
-  "Puts the dividers back at the remembered pane widths. The native split views share
-out a window resize proportionally; Xeon keeps the side panes' widths and lets the
-editor take the difference."
+  "Puts the dividers back at the remembered pane widths. A split view keeps its first
+pane's length on a resize; the tools pane is the second pane of its split, so Xeon keeps
+its width here and lets the editor take the difference."
   (when (visible (workbench-sidebar workbench))
     (unless (= (widget-width (workbench-sidebar workbench)) (workbench-sidebar-width workbench))
       (setf (divider-position (workbench-outer-split workbench)) (workbench-sidebar-width workbench))))
@@ -410,6 +428,8 @@ editor take the difference."
         (refresh-tree (explorer-tree explorer))))
     (restyle-projects workbench)
     (restyle-source-control workbench)
+    (restyle-databases workbench)
+    (restyle-api workbench)
     (refresh-rail workbench)
     (restyle-previews workbench)
     (restyle-chats workbench)
@@ -439,14 +459,18 @@ REMEMBER-FRAME NIL neither restores nor saves the window frame and pane layout."
            (sidebar-stack (let ((stack (make-instance 'stack))
                                 (explorer (make-explorer-panel workbench))
                                 (projects (make-projects-panel workbench))
-                                (source-control (make-source-control-panel workbench)))
+                                (source-control (make-source-control-panel workbench))
+                                (databases (make-databases-panel workbench))
+                                (api (make-api-panel workbench)))
                             (add-page stack explorer "Explorer")
                             (add-page stack projects "Projects")
                             (add-page stack source-control "Source Control")
+                            (add-page stack databases "Databases")
+                            (add-page stack api "API")
                             (setf (workbench-sidebar-stack workbench) stack
                                   (workbench-sidebar-pages workbench)
                                   (list :explorer explorer :projects projects
-                                        :source-control source-control))
+                                        :source-control source-control :databases databases :api api))
                             stack))
            (sidebar (ui (vbox :surface :sidebar :spacing 0
                           (:widget sidebar-stack :expand t))))
@@ -499,6 +523,9 @@ REMEMBER-FRAME NIL neither restores nor saves the window frame and pane layout."
               (dolist (page (chat-pages workbench)) (stop-chat page))
               (stop-tools workbench)
               (stop-project-runs workbench)
+              (stop-database-workers workbench)
+              (dolist (page (children (workbench-tabs workbench)))
+                (when (typep page 'api-page) (release-api-page page)))
               (dolist (d (workbench-documents workbench)) (release-document d)))))
       (dolist (signal '(:resize :state-changed))
         (on window signal (lambda (e) (declare (ignore e))
@@ -519,6 +546,9 @@ REMEMBER-FRAME NIL neither restores nor saves the window frame and pane layout."
               (new-document workbench))
           (new-document workbench))
       (select-tool workbench :repl :show nil)
+      ;; A restored layout may show the Databases view without it being chosen.
+      (when (sidebar-view-shown-p workbench :databases) (ensure-databases-loaded workbench))
+      (when (sidebar-view-shown-p workbench :api) (ensure-api-loaded workbench))
       (refresh-rail workbench)
       (update-title workbench)
       (refresh-status workbench)

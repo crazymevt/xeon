@@ -7,12 +7,12 @@
 (asdf:defsystem "xeon/ui"
   :description "Native LGT editor shell; widgets and layout only, behavior stays in the backend"
   :depends-on ("xeon/core" "xeon/search" "xeon/themes" "xeon/folders" "xeon/syntax" "xeon/repl"
-               "xeon/assistants" "xeon/chat-render" "lgt")
+               "xeon/assistants" "xeon/chat-render" "xeon/databases" "xeon/http" "lgt")
   :serial t
   :components ((:file "src/ui/package") (:file "src/ui/theme") (:file "src/ui/icons")
                (:file "src/ui/state") (:file "src/ui/document") (:file "src/ui/editor")
                (:file "src/ui/explorer") (:file "src/ui/tools") (:file "src/ui/documents")
-               (:file "src/ui/documentation") (:file "src/ui/preview") (:file "src/ui/chat-tools") (:file "src/ui/chat") (:file "src/ui/workbench") (:file "src/ui/menus") (:file "src/ui/projects") (:file "src/ui/source-control") (:file "src/ui/settings")
+               (:file "src/ui/documentation") (:file "src/ui/preview") (:file "src/ui/chat-tools") (:file "src/ui/chat") (:file "src/ui/workbench") (:file "src/ui/menus") (:file "src/ui/projects") (:file "src/ui/source-control") (:file "src/ui/databases") (:file "src/ui/api") (:file "src/ui/api-sidebar") (:file "src/ui/settings")
                (:file "src/ui/main")
                (:static-file "assets/chat/chat.css") (:static-file "assets/chat/chat.js")
                (:static-file "assets/fonts/material-icons/MaterialIcons-Regular.ttf")
@@ -77,15 +77,16 @@
 
 (asdf:defsystem "xeon/http"
   :description "Headless HTTP(S) requests through native libcurl; no curl executable"
-  :depends-on ("xeon/core" "cffi" "babel") :serial t
+  :depends-on ("xeon/core" "xeon/themes" "cffi" "babel") :serial t
   :components ((:file "src/http/package") (:file "src/http/request")
                (:file "src/http/collection") (:file "src/http/builder") (:file "src/http/libcurl")
-               (:file "src/http/jobs")))
+               (:file "src/http/jobs") (:file "src/http/pretty") (:file "src/http/environments")))
 
 (asdf:defsystem "xeon/databases"
-  :description "Headless native SQLite adapter (requires platform SQLite shared library)"
-  :depends-on ("cffi") :serial t
-  :components ((:file "src/databases/sqlite")))
+  :description "Headless SQLite driver, connection workers and stored connections (requires platform SQLite shared library)"
+  :depends-on ("cffi" "xeon/themes") :serial t
+  :components ((:file "src/databases/package") (:file "src/databases/sqlite")
+               (:file "src/databases/worker") (:file "src/databases/connections")))
 
 (asdf:defsystem "xeon/search"
   :description "UI-independent literal and CL-PPCRE search/replace"
