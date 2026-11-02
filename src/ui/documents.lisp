@@ -3,16 +3,31 @@
 ;;; Documents in the editor tabs: new, open, save, close, with the usual
 ;;; unsaved-changes protection.
 
-(defun active-editor (workbench)
+;;; Each tab's page holds a document's editor and, for Markdown, an optional preview
+;;; beside it.
+
+(defclass document-page (paned)
+  ((editor :initarg :editor :reader page-editor)
+   (preview :initform nil :accessor page-preview)
+   (preview-timer :initform nil :accessor page-preview-timer))
+  (:default-initargs :orientation :horizontal))
+
+(defun page-document (page) (view-document (page-editor page)))
+
+(defun active-page (workbench)
   (let ((page (selected-page (workbench-tabs workbench))))
-    (and page (typep page 'editor-view) (not (destroyed-p page)) page)))
+    (and page (typep page 'document-page) (not (destroyed-p page)) page)))
+
+(defun active-editor (workbench)
+  (let ((page (active-page workbench)))
+    (and page (page-editor page))))
 
 (defun active-document (workbench)
   (let ((view (active-editor workbench)))
     (and view (view-document view))))
 
-(defun document-page (workbench d)
-  (find-if (lambda (page) (and (typep page 'editor-view) (eq (view-document page) d)))
+(defun find-document-page (workbench d)
+  (find-if (lambda (page) (and (typep page 'document-page) (eq (page-document page) d)))
            (children (workbench-tabs workbench))))
 
 (defun document-tab-tooltip (d)
@@ -20,7 +35,7 @@
     (if path (uiop:native-namestring path) "Not saved yet")))
 
 (defun update-document-tab (workbench d)
-  (let ((page (document-page workbench d))
+  (let ((page (find-document-page workbench d))
         (tabs (workbench-tabs workbench)))
     (when page
       (unless (equal (tab-label tabs page) (document-name d))
@@ -37,6 +52,8 @@
 
 (defun document-changed (workbench d)
   (update-document-tab workbench d)
+  (let ((page (find-document-page workbench d)))
+    (when page (schedule-preview workbench page)))
   (when (eq d (active-document workbench))
     (update-title workbench)
     (refresh-status workbench)))
@@ -45,20 +62,22 @@
   (let* ((d (make-instance 'document :workbench workbench :buffer buffer
                                      :on-change (lambda (d) (document-changed workbench d))))
          (view (make-editor-view workbench d))
+         (page (make-instance 'document-page :editor view))
          (tabs (workbench-tabs workbench)))
+    (add page view)
     (setf (workbench-documents workbench) (append (workbench-documents workbench) (list d)))
-    (add tabs view :tab-label (document-name d) :tab-tooltip (document-tab-tooltip d))
+    (add tabs page :tab-label (document-name d) :tab-tooltip (document-tab-tooltip d))
     (on view :selection-changed (lambda (e) (declare (ignore e))
                                   (when (eq view (active-editor workbench)) (refresh-position workbench))))
-    (select-page tabs view)
+    (select-page tabs page)
     (focus view)
     d))
 
 (defun show-document (workbench d)
-  (let ((page (and d (document-page workbench d))))
+  (let ((page (and d (find-document-page workbench d))))
     (when page
       (select-page (workbench-tabs workbench) page)
-      (focus page))
+      (focus (page-editor page)))
     d))
 
 (defun new-document (workbench)
@@ -158,7 +177,7 @@
 
 (defun close-document (workbench &optional (d (active-document workbench)) force)
   "Closes D, asking to save its changes unless FORCE."
-  (let ((page (and d (document-page workbench d))))
+  (let ((page (and d (find-document-page workbench d))))
     (when (and page (or force (confirm-closing workbench d)))
       (close-page (workbench-tabs workbench) page :force t)
       t)))

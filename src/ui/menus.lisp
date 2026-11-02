@@ -88,6 +88,9 @@
                        :on-activate (action (workbench) (toggle-sidebar workbench)))
             (menu-item :label "Toggle Runtime Tools" :shortcut "Primary+J"
                        :on-activate (action (workbench) (toggle-tools workbench)))
+            (menu-item :label "Toggle Markdown Preview" :shortcut "Primary+Shift+V"
+                       :enabled-function (available (lambda () (markdown-document-p (active-document workbench))))
+                       :on-activate (action (workbench) (toggle-markdown-preview workbench)))
             (menu-separator)
             (menu-item :label "REPL" :shortcut "Primary+1" :on-activate (action (workbench) (select-tool workbench :repl)))
             (menu-item :label "Problems" :shortcut "Primary+2" :on-activate (action (workbench) (select-tool workbench :problems)))

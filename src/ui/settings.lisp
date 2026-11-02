@@ -14,7 +14,11 @@
 (defun make-settings-content (workbench)
   (let* ((themes (workbench-themes workbench))
          (choices (xeon.themes:available-themes themes))
-         (theme (make-instance 'combo-box :items choices :label-function #'second
+         (theme (make-instance 'combo-box :items choices
+                                          :label-function (lambda (choice)
+                                                            (if (equal (first choice) "system")
+                                                                "System (native macOS colors)"
+                                                                (second choice)))
                                           :selected-index (or (position (xeon.themes:selected-theme-id themes)
                                                                         choices :key #'first :test #'equal)
                                                               0)))
