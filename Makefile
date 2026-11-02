@@ -23,3 +23,12 @@ http-bundle:
 
 http-test:
 	@$(QUIET_PREFIX) "$(PYTHON)" tools/check-http.py
+
+.PHONY: run ui-test
+FILE ?=
+FOLDER ?=
+run:
+	@XEON_OPEN_FILE="$(FILE)" XEON_OPEN_FOLDER="$(FOLDER)" $(QUIET_PREFIX) "$(SBCL)" $(LISP_FLAGS) --load tools/run.lisp
+
+ui-test:
+	@$(QUIET_PREFIX) "$(SBCL)" $(LISP_FLAGS) --load tests/run-ui.lisp

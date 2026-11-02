@@ -1,0 +1,5 @@
+(load (merge-pathnames "../tools/bootstrap.lisp" *load-truename*))
+(unless (find-package :ql)
+  (load (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
+(uiop:symbol-call :ql :quickload "xeon/ui" :silent t)
+(asdf:test-system "xeon/ui")

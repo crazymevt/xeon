@@ -4,6 +4,28 @@
   :depends-on ("xeon/core" "xeon/search" "xeon/themes" "xeon/folders" "xeon/syntax")
   :in-order-to ((test-op (test-op "xeon/tests"))))
 
+(asdf:defsystem "xeon/ui"
+  :description "Native LGT editor shell; widgets and layout only, behavior stays in the backend"
+  :depends-on ("xeon/core" "xeon/search" "xeon/themes" "xeon/folders" "xeon/syntax" "xeon/repl" "lgt")
+  :serial t
+  :components ((:file "src/ui/package") (:file "src/ui/theme") (:file "src/ui/icons")
+               (:file "src/ui/state") (:file "src/ui/document") (:file "src/ui/editor")
+               (:file "src/ui/explorer") (:file "src/ui/tools") (:file "src/ui/documents")
+               (:file "src/ui/workbench") (:file "src/ui/menus") (:file "src/ui/settings")
+               (:file "src/ui/main")
+               (:static-file "assets/fonts/material-icons/MaterialIcons-Regular.ttf")
+               (:static-file "assets/fonts/material-icons/LICENSE")
+               (:static-file "assets/fonts/material-icons/PROVENANCE.md"))
+  :in-order-to ((test-op (test-op "xeon/ui-tests"))))
+
+(asdf:defsystem "xeon/ui-tests"
+  :description "Headless tests of the editor shell"
+  :depends-on ("xeon/ui")
+  :components ((:file "tests/ui"))
+  :perform (test-op (op system)
+             (declare (ignore op system))
+             (uiop:symbol-call :xeon.ui.tests :run-tests)))
+
 (asdf:defsystem "xeon/core"
   :description "UI-independent buffer and editing model"
   :version "0.1.0"

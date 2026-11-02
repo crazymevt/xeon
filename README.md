@@ -4,9 +4,30 @@ Headless Common Lisp editor backend: documents, editing, search, syntax,
 projects, REPLs, terminals, HTTP, SQLite and AI chat sessions. SBCL is the
 supported implementation.
 
-This repository holds the backend only. The GUI will be built with
-[LGT](../lgt), the Lisp GUI Toolkit, once it is ready. The backend was copied
-from Xeon's LUT-based tree; see [PROVENANCE.md](PROVENANCE.md).
+The GUI is built with [LGT](../lgt), the Lisp GUI Toolkit, using native macOS
+controls. The backend was copied from Xeon's LUT-based tree; see
+[PROVENANCE.md](PROVENANCE.md).
+
+## Run the editor
+
+LGT must be visible to Quicklisp (for example linked into
+`~/quicklisp/local-projects/`).
+
+```sh
+make run                         # opens the current folder
+make run FILE=src/ui/editor.lisp
+make run FOLDER=~/projects/lisp/lgt
+make ui-test                     # headless UI tests
+```
+
+The window has an activity rail, a folder explorer, editor tabs with syntax
+highlighting and line numbers, runtime tools (REPL, Problems, Debugger,
+Inspector) and a status bar with a language picker. The REPL connects to, or
+starts, SBCL (Swank), Clojure (nREPL) or Racket (Cadre). The Lisp menu evaluates
+or compiles the current form (Command+Return, Command+K) or the whole document
+(add Shift). Command+B and Command+J toggle the explorer and tools. Settings
+(the gear, or Xeon › Settings…) choose the theme, editor font size, tab width and
+whitespace trimming. `tools/screenshot.lisp` captures the window for review.
 
 ## Load and test
 
@@ -60,7 +81,7 @@ The native bridge retains its `krypton_terminal` library name and `kte_*` ABI.
 
 ## UI integration boundary
 
-A future `xeon/ui` system will depend on LGT and the needed backend systems.
+The `xeon/ui` system depends on LGT and the needed backend systems.
 Keep widgets, layout and input translation there. Use
 `xeon.core:buffer-manager` for documents, `buffer-cursor` for view selections,
 range APIs for text access, and change listeners for invalidation. Keep editing

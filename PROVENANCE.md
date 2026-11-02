@@ -10,9 +10,11 @@ The source project was not modified.
 Included: headless Common Lisp systems, their regression tests and fixtures,
 REPL runtime vendors, local docsets, libvterm, terminal bridge source, native
 build helpers and backend CI. Excluded: the LUT UI (`src/ui`, `xeon/ui`,
-`xeon/gui`), UI assets (chat CSS/JS, Material Icons), UI tests, GUI launchers
+`xeon/gui`), UI assets (chat CSS/JS), UI tests, GUI launchers
 and observers, GUI/chat/idle-CPU docs, the LUT revision pin and build output.
 Optional library documentation discovery now looks for LGT instead of LUT.
+Material Icons (`assets/fonts/material-icons/`, Apache 2.0, with its license and
+provenance) was later copied from the same tree for the LGT UI.
 
 ## Earlier history
 
