@@ -290,7 +290,7 @@ recognised Authorization header was. Unrecognised schemes stay ordinary headers.
   (set-enabled (part page :visual) pro-p)
   (dolist (key '(:requests :new-request :duplicate :delete))
     (set-enabled (part page key) (not pro-p)))
-  (when pro-p (focus (page-editor page)))
+  (when (and pro-p (not *background-document-operation*)) (focus (page-editor page)))
   t)
 
 (defun api-select-request (page index)
@@ -730,12 +730,14 @@ recognised Authorization header was. Unrecognised schemes stay ordinary headers.
                     (progn (setf (api-index page) (or (selected-index requests) 0)) (api-load-builder page))
                   (error (condition) (api-message page (princ-to-string condition))))))))
     ;; A new collection replaces an empty untitled tab; OPEN-DOCUMENT does that for files.
-    (let ((scratch (and (not opened) (disposable-document workbench))))
+    (let ((scratch (and (not *background-document-operation*) (not opened)
+                        (disposable-document workbench))))
       (push document (workbench-documents workbench))
       (add (workbench-tabs workbench) page :tab-label (document-name document)
                                            :tab-icon (icon :api :size 14))
       (update-document-tab workbench document)
-      (select-page (workbench-tabs workbench) page)
+      (unless *background-document-operation*
+        (select-page (workbench-tabs workbench) page))
       (when scratch (close-document workbench scratch t)))
     (refresh-environment-choices workbench)
     (handler-case (api-load-builder page)

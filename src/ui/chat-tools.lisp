@@ -128,6 +128,10 @@ runtime is noticed rather than acted on."
 
 (defun chat-tool (workbench name arguments complete current-p context)
   "Runs the tool NAME for the assistant and calls COMPLETE with its result text."
+  (let ((*background-document-operation* t))
+    (chat-tool-background workbench name arguments complete current-p context)))
+
+(defun chat-tool-background (workbench name arguments complete current-p context)
   (flet ((done (text) (funcall complete text nil)))
     (unless (funcall current-p) (error "This chat's conversation has changed; request the tool again."))
     (cond

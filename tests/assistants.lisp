@@ -219,6 +219,10 @@
           (xeon.assistants:send-message session "hello")
           (let ((state (await-assistant-state session (lambda (s) (and (eq :ready (getf s :status)) (getf s :usage))))))
             (check (search "Echo hello" (getf state :text)))
+            (when (eq provider :claude)
+              (setf state (await-assistant-state session
+                            (lambda (s) (eql 24 (getf (getf s :context) :used))))))
+            (check (= 24 (getf (getf state :context) :used)))
             (check (= 1000 (getf (getf state :context) :window)))
             (check (= 75 (getf (first (getf state :limits)) :remaining))))
           ;; Hold the response open until redirected: no natural completion

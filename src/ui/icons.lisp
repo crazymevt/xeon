@@ -15,7 +15,7 @@
     (:source-control . #xebac) (:branch . #xe0b6) (:sync . #xe627) (:more . #xe5d3)
     (:check . #xe5ca) (:publish . #xe2c3) (:commit . #xeaf5)
     (:database . #xe1db) (:table . #xe265) (:view . #xf1c5) (:query . #xe745)
-    (:api . #xf1b7) (:http . #xe902) (:send . #xe163) (:key . #xe73c)
+    (:api . #xe8d4) (:http . #xe902) (:send . #xe163) (:key . #xe73c)
     (:computer . #xe30a) (:folder-special . #xe617)
     (:lisp . #xe86f) (:clojure . #xe86f) (:racket . #xe86f)))
 

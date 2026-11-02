@@ -98,4 +98,4 @@
                     (fixture-finish (concatenate 'string "Steered " text))))))
       ((and (not *fixture-codex*) (equal (jget object "type") "user")) (fixture-turn (jget object "message" "content")))
       ((member method '("interrupt" "turn/interrupt") :test #'equal) (clrhash *fixture-pending*) (fixture-reply id (jobj)) (fixture-finish "Interrupted"))
-      ((equal method "get_context_usage") (fixture-reply id (jobj "usedTokens" 24 "contextWindow" 1000))))))
+      ((equal method "get_context_usage") (fixture-reply id (jobj "totalTokens" 24 "maxTokens" 1000))))))

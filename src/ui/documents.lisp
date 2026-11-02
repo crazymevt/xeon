@@ -60,6 +60,9 @@
     (update-title workbench)
     (refresh-status workbench)))
 
+(defvar *background-document-operation* nil
+  "True while assistant tools update documents without changing the user's tab or focus.")
+
 (defun add-document (workbench buffer)
   (when (member (pathname-type (or (xeon.core:buffer-pathname buffer) "")) '("http" "rest") :test #'equalp)
     (return-from add-document (page-document (open-api-workspace workbench :buffer buffer))))
@@ -73,13 +76,14 @@
     (add tabs page :tab-label (document-name d) :tab-tooltip (document-tab-tooltip d))
     (on view :selection-changed (lambda (e) (declare (ignore e))
                                   (when (eq view (active-editor workbench)) (refresh-position workbench))))
-    (select-page tabs page)
-    (focus view)
+    (unless *background-document-operation*
+      (select-page tabs page)
+      (focus view))
     d))
 
 (defun show-document (workbench d)
   (let ((page (and d (find-document-page workbench d))))
-    (when page
+    (when (and page (not *background-document-operation*))
       (select-page (workbench-tabs workbench) page)
       (focus (page-editor page)))
     d))
@@ -107,7 +111,7 @@
                             (workbench-documents workbench))))
     (if existing
         (show-document workbench existing)
-        (let ((scratch (disposable-document workbench))
+        (let ((scratch (and (not *background-document-operation*) (disposable-document workbench)))
               (buffer (xeon.core:open-managed-file (workbench-manager workbench) path)))
           (prog1 (add-document workbench buffer)
             (when scratch (close-document workbench scratch t))
