@@ -49,7 +49,18 @@ appearance and selection; with one it keeps that color."
     (:image :image :syntax-string) (:archive :archive :syntax-function)
     (:text :text :syntax-symbol) (:git :git :syntax-number)))
 
+(defparameter *native-file-icon-colors*
+  '((:folder . :system-blue) (:folder-open . :system-blue) (:file . :system-gray)
+    (:lisp . :system-purple) (:clojure . :system-green) (:racket . :system-red)
+    (:code . :system-orange) (:data . :system-teal) (:image . :system-pink)
+    (:archive . :system-brown) (:text . :system-gray) (:git . :system-orange))
+  "File icon colors in the System theme, from the platform palette; folders are blue as
+in the Finder.")
+
 (defun file-icon (palette kind)
   (destructuring-bind (glyph role)
       (rest (or (assoc kind *file-icon-roles*) (assoc :file *file-icon-roles*)))
-    (icon glyph :size 16 :color (palette-hex palette role))))
+    (icon glyph :size 16
+                :color (if (native-palette-p palette)
+                           (or (cdr (assoc kind *native-file-icon-colors*)) :system-gray)
+                           (palette-color palette role)))))

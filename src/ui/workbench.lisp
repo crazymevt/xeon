@@ -164,7 +164,10 @@
 
 (defun refresh-rail (workbench)
   "Shows the rail icons of shown panes bright, and the others dimmed."
-  (let ((dim (if (palette-dark-p (workbench-palette workbench)) "#7C7C7C" "#8D96A3")))
+  (let* ((palette (workbench-palette workbench))
+         (dim (cond ((native-palette-p palette) :secondary-text)
+                    ((palette-dark-p palette) "#7C7C7C")
+                    (t "#8D96A3"))))
     (dolist (button (rail-buttons workbench))
       (let* ((glyph (user-data button))
              (active (case glyph
@@ -421,6 +424,9 @@ REMEMBER-FRAME NIL neither restores nor saves the window frame and pane layout."
                             (schedule-layout-save workbench))))
       (on window :moved (lambda (e) (declare (ignore e)) (schedule-layout-save workbench)))
       (on window :shown (lambda (e) (declare (ignore e)) (keep-pane-widths workbench)))
+      ;; Light and dark mode switched: icons drawn in system colors are drawn again,
+      ;; and a System palette follows the new mode.
+      (on window :appearance-changed (lambda (e) (declare (ignore e)) (apply-theme workbench)))
       (when remember-frame (restore-layout workbench (load-layout)))
       (with-reported-errors (workbench)
         (open-folder workbench (or folder (default-folder file))))

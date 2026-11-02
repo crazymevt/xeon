@@ -291,7 +291,7 @@
                  (setf (checked switch) (eq name page)
                        ;; The accent-colored icon marks the shown page.
                        (image switch) (if (eq name page)
-                                          (icon glyph :size 18 :color (palette-hex (workbench-palette workbench) :accent))
+                                          (icon glyph :size 18 :color (palette-color (workbench-palette workbench) :accent))
                                           (icon glyph :size 18))))))))
 
 ;;; Building
@@ -369,9 +369,9 @@
 
 (defun problem-icon (issue)
   (case (getf issue :severity)
-    ((:error :read-error) (icon :error :size 16 :color "#E5534B"))
-    ((:warning :style-warning) (icon :warning :size 16 :color "#D6A23A"))
-    (t (icon :info :size 16 :color "#6CA0DC"))))
+    ((:error :read-error) (icon :error :size 16 :color :system-red))
+    ((:warning :style-warning) (icon :warning :size 16 :color :system-yellow))
+    (t (icon :info :size 16 :color :system-blue))))
 
 (defun make-problems-page (tools)
   (let* ((workbench (tools-workbench tools))

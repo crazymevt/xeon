@@ -6,19 +6,39 @@
 (defun rgb-hex (value)
   (format nil "#~6,'0X" value))
 
-(defun palette-hex (palette role)
-  (rgb-hex (xeon.themes:theme-colour palette role)))
+(defparameter *native-colors*
+  '((:syntax-keyword . :system-pink) (:syntax-string . :system-red)
+    (:syntax-comment . :secondary-text) (:syntax-number . :system-orange)
+    (:syntax-symbol . :system-teal) (:syntax-function . :system-purple)
+    (:syntax-parameter . :system-indigo) (:inserted . :system-green) (:deleted . :system-red)
+    (:sidebar-foreground . :secondary-text) (:accent . :accent))
+  "The System theme's colors: the platform's own adaptable colors, which follow light and
+dark mode, increased contrast and the user's accent color.")
+
+(defun native-palette-p (palette) (eq palette :native))
+
+(defun palette-color (palette role)
+  "The color for ROLE: a system color keyword for the System theme, otherwise the
+custom theme's color as a hex string."
+  (if (native-palette-p palette)
+      (or (cdr (assoc role *native-colors*)) :text)
+      (case role
+        (:inserted "#50B97D")
+        (:deleted "#EB646E")
+        (t (rgb-hex (xeon.themes:theme-colour palette role))))))
 
 (defun palette-dark-p (palette)
-  (destructuring-bind (r g b) (xeon.themes:theme-rgb palette :editor-background)
-    (< (+ (* 0.2126 r) (* 0.7152 g) (* 0.0722 b)) 128)))
+  (if (native-palette-p palette)
+      (dark-mode-p)
+      (destructuring-bind (r g b) (xeon.themes:theme-rgb palette :editor-background)
+        (< (+ (* 0.2126 r) (* 0.7152 g) (* 0.0722 b)) 128))))
 
 (defparameter *syntax-styles*
   #(nil :keyword :string :comment :number :symbol :function :parameter :inserted :deleted)
   "Style names for the backend lexer's per-character style codes.")
 
 (defun syntax-text-styles (palette)
-  (flet ((role (name) (palette-hex palette name)))
+  (flet ((role (name) (palette-color palette name)))
     (list :keyword (list :color (role :syntax-keyword))
           :string (list :color (role :syntax-string))
           :comment (list :color (role :syntax-comment) :italic t)
@@ -26,8 +46,8 @@
           :symbol (list :color (role :syntax-symbol))
           :function (list :color (role :syntax-function))
           :parameter (list :color (role :syntax-parameter))
-          :inserted (list :color "#50B97D")
-          :deleted (list :color "#EB646E"))))
+          :inserted (list :color (role :inserted))
+          :deleted (list :color (role :deleted)))))
 
 (defun make-theme-manager ()
   "The user's theme and editor preferences, or the built-in defaults if they cannot be read."
@@ -41,7 +61,10 @@
         (xeon.themes:make-theme-manager :load-p nil)))))
 
 (defun resolve-palette (manager)
-  "The selected palette. The System theme follows macOS light or dark mode."
+  "The selected palette: :NATIVE for the System theme, which uses the platform's own
+colors, otherwise the custom theme's resolved palette."
+  (when (equal "system" (xeon.themes:selected-theme-id manager))
+    (return-from resolve-palette :native))
   (let ((variant (if (dark-mode-p) "dark" "light")))
     (handler-case (xeon.themes:resolve-theme manager (xeon.themes:selected-theme-id manager)
                                              :system-variant variant)
@@ -49,9 +72,10 @@
         (xeon.themes:resolve-theme manager "system" :system-variant variant)))))
 
 (defun theme-appearance (manager palette)
-  (if (equal "system" (xeon.themes:selected-theme-id manager))
-      :system
-      (if (palette-dark-p palette) :dark :light)))
+  (declare (ignore manager))
+  (cond ((native-palette-p palette) :system)
+        ((palette-dark-p palette) :dark)
+        (t :light)))
 
 (defun editor-font (manager)
   (let ((setting (xeon.themes:editor-font manager)))
