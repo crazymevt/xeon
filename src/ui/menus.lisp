@@ -87,8 +87,12 @@
                        :on-activate (action (workbench) (close-active-tab workbench)))
             (menu-item :role :preferences :on-activate (action (workbench) (show-settings workbench))))
           (menu :title "View"
-            (menu-item :label "Toggle Explorer" :shortcut "Primary+B"
+            (menu-item :label "Toggle Sidebar" :shortcut "Primary+B"
                        :on-activate (action (workbench) (toggle-sidebar workbench)))
+            (menu-item :label "Explorer" :shortcut "Primary+Shift+E"
+                       :on-activate (action (workbench) (show-sidebar-view workbench :explorer)))
+            (menu-item :label "Projects" :shortcut "Primary+Shift+P"
+                       :on-activate (action (workbench) (show-sidebar-view workbench :projects)))
             (menu-item :label "Toggle Runtime Tools" :shortcut "Primary+J"
                        :on-activate (action (workbench) (toggle-tools workbench)))
             (menu-item :label "Toggle Markdown Preview" :shortcut "Primary+Shift+V"
@@ -100,7 +104,8 @@
             (menu-item :label "Debugger" :shortcut "Primary+3" :on-activate (action (workbench) (select-tool workbench :debugger)))
             (menu-item :label "Inspector" :shortcut "Primary+4" :on-activate (action (workbench) (select-tool workbench :inspector)))
             (menu-separator)
-            (menu-item :label "Refresh Explorer" :on-activate (action (workbench) (refresh-explorer workbench))))
+            (menu-item :label "Refresh Explorer" :on-activate (action (workbench) (refresh-explorer workbench)))
+            (menu-item :label "Refresh Projects" :on-activate (action (workbench) (discover-projects workbench :force t))))
           (menu :title "Lisp"
             (menu-item :label "Evaluate Form" :shortcut "Primary+Return" :enabled-function can-evaluate
                        :on-activate (action (workbench) (send-editor-source workbench :form nil)))

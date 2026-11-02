@@ -11,6 +11,7 @@
     (:repl . #xe86f) (:terminal . #xeb8e) (:chat . #xe0cb) (:close . #xe5cd)
     (:outline . #xe8ef) (:add . #xe145) (:play . #xe037) (:stop . #xe047)
     (:circle . #xe061) (:error . #xe000) (:warning . #xe002) (:info . #xe88e)
+    (:projects . #xe1a1)
     (:lisp . #xe86f) (:clojure . #xe86f) (:racket . #xe86f)))
 
 (defparameter *icon-font* "Material Icons")

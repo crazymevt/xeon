@@ -21,6 +21,8 @@
    (lock :initform (sb-thread:make-mutex :name "Xeon REPL delivery") :reader tools-lock)
    (history-index :initform -1 :accessor tools-history-index)
    (history-draft :initform "" :accessor tools-history-draft)
+   ;; A project action waiting for the runtime it started: (dialect source name action).
+   (pending :initform nil :accessor tools-pending)
    (stack :accessor tools-stack)
    (switches :initform '() :accessor tools-switches)
    (widgets :initform (make-hash-table) :reader tools-widgets)))
@@ -36,6 +38,16 @@
 
 (defun selected-dialect (tools)
   (first (nth (or (selected-index (tool tools :dialect)) 0) *dialects*)))
+
+(defun choose-repl-dialect (tools dialect)
+  "Selects DIALECT in the REPL page, as if chosen there."
+  (let ((index (position dialect *dialects* :key #'first))
+        (combo (tool tools :dialect)))
+    (unless index (error "Xeon has no REPL for ~A." dialect))
+    (unless (eql index (selected-index combo))
+      (with-handlers-blocked (combo :changed)
+        (setf (selected-index combo) index))
+      (setf (label (tool tools :start)) (third (nth index *dialects*))))))
 
 ;;; Inputs
 
@@ -221,6 +233,9 @@
                  (and (member :inspector capabilities) (getf snapshot :results)))
     (when (or (funcall changed :status) (funcall changed :prompt))
       (setf (text (tool tools :status)) (status-text snapshot)))
+    (when (funcall changed :status)
+      (run-pending-project-action tools state)
+      (refresh-project-actions (tools-workbench tools)))
     (when (funcall changed :text)
       (let* ((buffer (buffer (tool tools :transcript)))
              (old (buffer-text buffer)) (new (getf snapshot :text))

@@ -17,6 +17,11 @@
    (rail :accessor workbench-rail)
    (status :accessor workbench-status)
    (explorer :initform nil :accessor workbench-explorer)
+   (projects :initform nil :accessor workbench-projects)
+   ;; The sidebar shows one view at a time: :explorer or :projects.
+   (sidebar-stack :accessor workbench-sidebar-stack)
+   (sidebar-pages :initform '() :accessor workbench-sidebar-pages)
+   (sidebar-view :initform :explorer :accessor workbench-sidebar-view)
    (repl :initform nil :accessor workbench-repl)
    (settings :initform nil :accessor workbench-settings)
    ;; Remembered pane widths, so hiding and showing a pane restores it.
