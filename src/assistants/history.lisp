@@ -23,6 +23,20 @@
              (let ((*package* (find-package :cl-user)) (*print-readably* t) (*print-pretty* nil)) (write record :stream out)))
            (uiop:rename-file-overwriting-target temporary path))
       (when (probe-file temporary) (delete-file temporary)))))
+(defun preferred-provider (store)
+  "Return the last explicitly selected provider, or NIL for missing/invalid settings."
+  (sb-thread:with-mutex (*history-lock*)
+    (let ((provider (getf (read-chat-record (merge-pathnames "preferences.sexp" store)) :provider)))
+      (when (member provider '(:codex :claude)) provider))))
+
+(defun remember-provider (store provider)
+  "Persist a selection independently of conversation saves and background updates."
+  (unless (member provider '(:codex :claude)) (error "Invalid assistant provider."))
+  (sb-thread:with-mutex (*history-lock*)
+    (write-chat-record (merge-pathnames "preferences.sexp" store)
+                       (list :version 1 :provider provider)))
+  provider)
+
 (defun chat-history (store directory &optional provider)
   (let ((key (history-directory-key directory)))
     (sb-thread:with-mutex (*history-lock*)

@@ -4,5 +4,5 @@
            #:make-session #:session-snapshot #:start-session #:stop-session #:send-message
            #:set-auto-approve #:configure-session #:clear-context #:interrupt-session #:answer-request
            #:session-provider #:session-program #:session-directory #:session-mode #:session-model #:session-effort
-           #:chat-history #:change-session-directory #:session-store #:session-history-id
+           #:chat-history #:preferred-provider #:remember-provider #:change-session-directory #:session-store #:session-history-id
            #:session-efforts #:runtime-tools #:set-tool-handler #:assistant-available-p))

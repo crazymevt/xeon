@@ -137,6 +137,18 @@
          (session (xeon.assistants:make-session :codex directory :store store :mode :chat :model "fixture" :effort "high")))
     (unwind-protect
         (progn
+          (check (null (xeon.assistants:preferred-provider store)))
+          (xeon.assistants:remember-provider store :claude)
+          (check (eq :claude (xeon.assistants:preferred-provider store)))
+          ;; Saving an older tab must not replace the user's latest choice.
+          (xeon.assistants::save-session session)
+          (check (eq :claude (xeon.assistants:preferred-provider store)))
+          (xeon.assistants:remember-provider store :codex)
+          (check (eq :codex (xeon.assistants:preferred-provider store)))
+          (signals error (xeon.assistants:remember-provider store :unknown))
+          (xeon.assistants::write-chat-record (merge-pathnames "preferences.sexp" store)
+                                            '(:version 1 :provider :unknown))
+          (check (null (xeon.assistants:preferred-provider store)))
           (setf (xeon.assistants::session-conversation session) "saved-thread")
           (xeon.assistants::session-update session :text "Hello" :role :user)
           (let* ((records (xeon.assistants:chat-history store directory :codex))

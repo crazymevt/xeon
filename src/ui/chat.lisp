@@ -75,9 +75,10 @@ said it was ready but before the web view finished loading wait for it."
                  (subseq base script))))
 
 (defun default-provider ()
-  (cond ((xeon.assistants:assistant-available-p :codex) :codex)
-        ((xeon.assistants:assistant-available-p :claude) :claude)
-        (t :codex)))
+  (or (xeon.assistants:preferred-provider (chat-history-store))
+      (cond ((xeon.assistants:assistant-available-p :codex) :codex)
+            ((xeon.assistants:assistant-available-p :claude) :claude)
+            (t :codex))))
 
 (defun provider-label (provider) (if (eq provider :codex) "Codex" "Claude"))
 
@@ -114,6 +115,7 @@ said it was ready but before the web view finished loading wait for it."
                                   (error (condition) (funcall complete (princ-to-string condition) t))))
                               :owner page)))
            :on-change (lambda (session) (let ((*backend* backend)) (notify-chat page session))))))
+  (xeon.assistants:remember-provider (chat-history-store) provider)
   (when connect (xeon.assistants:start-session (chat-session page)))
   (refresh-chat page))
 

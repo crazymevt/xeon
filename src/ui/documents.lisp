@@ -217,7 +217,16 @@
   (refresh-status workbench))
 
 (defun confirm-quitting (workbench)
-  (every (lambda (d) (confirm-closing workbench d)) (workbench-documents workbench)))
+  (and (or (notany (lambda (page)
+                     (let ((session (chat-session page)))
+                       (and session
+                            (member (getf (xeon.assistants:session-snapshot session) :status)
+                                    '(:starting :busy :waiting)))))
+                   (chat-pages workbench))
+           (confirm "An AI agent is still working. Quit anyway?"
+                    :detail "Quitting will interrupt active agents, including those waiting for your input."
+                    :yes "Quit Anyway" :parent (workbench-window workbench)))
+       (every (lambda (d) (confirm-closing workbench d)) (workbench-documents workbench))))
 
 ;;; Recent files and folders
 
