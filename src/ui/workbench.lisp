@@ -145,10 +145,12 @@
 
 ;;; Rail
 
+(defparameter *rail-icon-size* 18)
+
 (defun rail-button (glyph label tooltip action)
   (let ((button (make-instance 'button :style :icon :label label :tooltip tooltip
-                                       :image (icon glyph :size 24) :control-size :large
-                                       :width 40 :height 40)))
+                                       :image (icon glyph :size *rail-icon-size*) :control-size :regular
+                                       :width 32 :height 32)))
     (setf (user-data button) glyph)
     (on button :clicked (lambda (e) (declare (ignore e)) (funcall action)))
     button))
@@ -165,12 +167,12 @@
                        (:explorer (visible (workbench-sidebar workbench)))
                        (:terminal (visible (workbench-tools workbench))))))
         (setf (image button) (if (or active (eq glyph :settings))
-                                 (icon glyph :size 24)
-                                 (icon glyph :size 24 :color dim)))))))
+                                 (icon glyph :size *rail-icon-size*)
+                                 (icon glyph :size *rail-icon-size* :color dim)))))))
 
 (defun make-rail (workbench)
   (let ((settings (rail-button :settings "Settings" "Settings" (lambda () (show-settings workbench)))))
-    (ui (vbox :surface :activity :padding '(10 8 12 8) :spacing 12
+    (ui (vbox :surface :activity :padding '(10 6 10 6) :spacing 8
           (:widget (rail-button :explorer "Explorer" (format nil "Explorer · ~A" (shortcut-label "Primary+B"))
                                 (lambda () (toggle-sidebar workbench))))
           (:widget (rail-button :terminal "Runtime tools" (format nil "Toggle runtime tools · ~A" (shortcut-label "Primary+J"))
