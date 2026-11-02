@@ -21,7 +21,9 @@
    (settings :initform nil :accessor workbench-settings)
    ;; Remembered pane widths, so hiding and showing a pane restores it.
    (sidebar-width :initform 260 :accessor workbench-sidebar-width)
-   (tools-width :initform 420 :accessor workbench-tools-width))
+   (tools-width :initform 420 :accessor workbench-tools-width)
+   (remember-layout :initarg :remember-layout :initform t :reader workbench-remember-layout)
+   (layout-timer :initform nil :accessor workbench-layout-timer))
   (:documentation "One Xeon window: its documents, panes and runtime tools."))
 
 (defvar *workbench* nil

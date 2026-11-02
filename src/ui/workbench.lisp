@@ -122,7 +122,8 @@
       (setf (visible pane) show)
       (when show
         (setf (divider-position (workbench-outer-split workbench)) (workbench-sidebar-width workbench)))
-      (refresh-rail workbench))
+      (refresh-rail workbench)
+      (schedule-layout-save workbench))
     show))
 
 (defun toggle-tools (workbench &optional (show nil supplied))
@@ -131,7 +132,8 @@
     (unless (eq show (pane-shown-p pane))
       (setf (visible pane) show)
       (when show (place-tools-divider workbench))
-      (refresh-rail workbench))
+      (refresh-rail workbench)
+      (schedule-layout-save workbench))
     show))
 
 (defun show-tools (workbench) (toggle-tools workbench t))
@@ -139,9 +141,11 @@
 (defun place-tools-divider (workbench)
   (let* ((split (workbench-inner-split workbench))
          (width (widget-width split)))
-    (when (and width (> width 0))
+    (when (and width (> width 0)
+               (/= (widget-width (workbench-tools workbench)) (workbench-tools-width workbench)))
+      ;; The divider itself is one point wide.
       (setf (divider-position split)
-            (max 320 (- width (workbench-tools-width workbench)))))))
+            (max 320 (- width (workbench-tools-width workbench) 1))))))
 
 ;;; Rail
 
@@ -236,29 +240,84 @@
               (consume e)))))
     tabs))
 
-;;; Window frame persistence
+;;; Window frame and layout persistence
+;;;
+;;; The window frame (including whether it is maximized), the explorer and tools
+;;; widths and which panes are shown are saved shortly after any of them change, and
+;;; on closing or quitting, then restored at the next launch.
 
-(defun frame-path ()
-  (merge-pathnames "window.sexp" (xeon.themes:default-configuration-directory)))
+(defvar *layout-file* nil
+  "The file the window layout is saved in, or NIL for window.sexp in Xeon's
+configuration directory.")
 
-(defun save-frame (workbench)
+(defun layout-path ()
+  (or *layout-file*
+      (merge-pathnames "window.sexp" (xeon.themes:default-configuration-directory))))
+
+(defun layout-plist (workbench)
+  (list :frame (coerce (window-frame-string (workbench-window workbench)) '(simple-array character (*)))
+        :sidebar (workbench-sidebar-width workbench)
+        :tools (workbench-tools-width workbench)
+        :sidebar-shown (and (visible (workbench-sidebar workbench)) t)
+        :tools-shown (and (visible (workbench-tools workbench)) t)))
+
+(defun save-layout (workbench)
+  (let ((path (layout-path)))
+    (handler-case
+        (progn
+          (ensure-directories-exist path)
+          (with-open-file (out path :direction :output :if-exists :supersede)
+            (with-standard-io-syntax
+              (prin1 (layout-plist workbench) out)
+              (terpri out))))
+      (error (condition) (warn "Could not save the window layout: ~A" condition)))))
+
+(defun load-layout ()
+  "The saved layout plist, or NIL when there is none or it cannot be read."
   (ignore-errors
-   (let ((path (frame-path)))
-     (ensure-directories-exist path)
-     (with-open-file (out path :direction :output :if-exists :supersede)
-       (with-standard-io-syntax
-         (prin1 (list :frame (coerce (window-frame-string (workbench-window workbench)) '(simple-array character (*)))
-                      :sidebar (workbench-sidebar-width workbench)
-                      :tools (workbench-tools-width workbench)
-                      :sidebar-shown (and (visible (workbench-sidebar workbench)) t)
-                      :tools-shown (and (visible (workbench-tools workbench)) t))
-                out))))))
-
-(defun load-frame ()
-  (ignore-errors
-   (with-open-file (in (frame-path))
+   (with-open-file (in (layout-path))
      (with-standard-io-syntax
-       (let ((*read-eval* nil)) (read in))))))
+       (let ((*read-eval* nil))
+         (let ((data (read in)))
+           (and (listp data) (evenp (length data)) data)))))))
+
+(defun schedule-layout-save (workbench)
+  "Saves the layout once things have settled, so dragging a divider writes once."
+  (when (workbench-remember-layout workbench)
+    (let ((timer (workbench-layout-timer workbench)))
+      (when timer (stop-timer timer)))
+    (setf (workbench-layout-timer workbench)
+          (after 1 (lambda ()
+                     (setf (workbench-layout-timer workbench) nil)
+                     (unless (destroyed-p (workbench-window workbench))
+                       (save-layout workbench)))))))
+
+(defun finish-layout (workbench)
+  "Writes the layout now, as when closing or quitting."
+  (when (workbench-remember-layout workbench)
+    (let ((timer (workbench-layout-timer workbench)))
+      (when timer (stop-timer timer) (setf (workbench-layout-timer workbench) nil)))
+    (save-layout workbench)))
+
+(defun restore-layout (workbench saved)
+  (let ((width (getf saved :sidebar)) (tools (getf saved :tools)))
+    (when (typep width '(integer 120 2000)) (setf (workbench-sidebar-width workbench) width))
+    (when (typep tools '(integer 200 3000)) (setf (workbench-tools-width workbench) tools)))
+  (when (stringp (getf saved :frame))
+    (ignore-errors (restore-window-frame (workbench-window workbench) (getf saved :frame))))
+  (setf (divider-position (workbench-outer-split workbench)) (workbench-sidebar-width workbench))
+  (when (and saved (not (getf saved :sidebar-shown))) (toggle-sidebar workbench nil))
+  (when (and saved (not (getf saved :tools-shown))) (toggle-tools workbench nil)))
+
+(defun keep-pane-widths (workbench)
+  "Puts the dividers back at the remembered pane widths. The native split views share
+out a window resize proportionally; Xeon keeps the side panes' widths and lets the
+editor take the difference."
+  (when (visible (workbench-sidebar workbench))
+    (unless (= (widget-width (workbench-sidebar workbench)) (workbench-sidebar-width workbench))
+      (setf (divider-position (workbench-outer-split workbench)) (workbench-sidebar-width workbench))))
+  (when (visible (workbench-tools workbench))
+    (place-tools-divider workbench)))
 
 ;;; Theme
 
@@ -301,7 +360,8 @@
                          (history (xeon.themes:load-workspace-history)) (remember-frame t))
   "Builds a Xeon window, opening FOLDER in the explorer and FILE in the editor.
 REMEMBER-FRAME NIL neither restores nor saves the window frame and pane layout."
-  (let* ((workbench (make-instance 'workbench :themes themes :history history))
+  (let* ((workbench (make-instance 'workbench :themes themes :history history
+                                              :remember-layout remember-frame))
          (*workbench* workbench))
     (setf (workbench-palette workbench) (resolve-palette themes))
     (let* ((rail (make-rail workbench))
@@ -330,37 +390,45 @@ REMEMBER-FRAME NIL neither restores nor saves the window frame and pane layout."
       (setf (menu-bar window) (make-menus workbench))
       (install-shortcuts workbench)
       (on outer :divider-moved
-          (lambda (e) (when (visible sidebar) (setf (workbench-sidebar-width workbench) (max 160 (event-value e))))))
+          (lambda (e)
+            (when (visible sidebar)
+              (setf (workbench-sidebar-width workbench) (max 160 (event-value e)))
+              (schedule-layout-save workbench))))
       (on inner :divider-moved
           (lambda (e)
             (when (visible tools)
-              (let ((width (widget-width inner)))
-                (setf (workbench-tools-width workbench) (max 280 (- width (event-value e))))))))
+              (setf (workbench-tools-width workbench) (max 280 (- (widget-width inner) (event-value e))))
+              (schedule-layout-save workbench))))
       (on window :close-request
           (lambda (e) (unless (confirm-quitting workbench) (veto e))))
-      (on window :closed
-          (lambda (e) (declare (ignore e))
-            (when remember-frame (save-frame workbench))
-            (stop-tools workbench)
-            (dolist (d (workbench-documents workbench)) (release-document d))))
-      ;; Restore the last window frame and pane widths.
-      (let ((saved (and remember-frame (load-frame))))
-        (when (getf saved :sidebar) (setf (workbench-sidebar-width workbench) (getf saved :sidebar)))
-        (when (getf saved :tools) (setf (workbench-tools-width workbench) (getf saved :tools)))
-        (when (getf saved :frame) (ignore-errors (restore-window-frame window (getf saved :frame))))
-        (setf (divider-position outer) (workbench-sidebar-width workbench))
-        (when (and saved (not (getf saved :sidebar-shown))) (toggle-sidebar workbench nil))
-        (when (and saved (not (getf saved :tools-shown))) (toggle-tools workbench nil)))
-      (on window :shown
-          (lambda (e) (declare (ignore e))
-            (when (visible tools) (place-tools-divider workbench))))
+      ;; Command+Q ends the event loop without closing the window: ask about unsaved
+      ;; changes and save the layout there too.
+      (let ((quit-handler (on *application* :quit-request
+                              (lambda (e)
+                                (unless (destroyed-p window)
+                                  (if (confirm-quitting workbench)
+                                      (finish-layout workbench)
+                                      (veto e)))))))
+        (on window :closed
+            (lambda (e) (declare (ignore e))
+              (off *application* quit-handler)
+              (finish-layout workbench)
+              (stop-tools workbench)
+              (dolist (d (workbench-documents workbench)) (release-document d)))))
+      (dolist (signal '(:resize :state-changed))
+        (on window signal (lambda (e) (declare (ignore e))
+                            (keep-pane-widths workbench)
+                            (schedule-layout-save workbench))))
+      (on window :moved (lambda (e) (declare (ignore e)) (schedule-layout-save workbench)))
+      (on window :shown (lambda (e) (declare (ignore e)) (keep-pane-widths workbench)))
+      (when remember-frame (restore-layout workbench (load-layout)))
       (with-reported-errors (workbench)
         (open-folder workbench (or folder (default-folder file))))
       (if file
           (or (with-reported-errors (workbench) (open-document workbench file))
               (new-document workbench))
           (new-document workbench))
-(select-tool workbench :repl :show nil)
+      (select-tool workbench :repl :show nil)
       (refresh-rail workbench)
       (update-title workbench)
       (refresh-status workbench)

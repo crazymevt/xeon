@@ -25,7 +25,8 @@ highlighting and line numbers, runtime tools (REPL, Problems, Debugger,
 Inspector) and a status bar with a language picker. The REPL connects to, or
 starts, SBCL (Swank), Clojure (nREPL) or Racket (Cadre). The Lisp menu evaluates
 or compiles the current form (Command+Return, Command+K) or the whole document
-(add Shift). Command+B and Command+J toggle the explorer and tools. Settings
+(add Shift). Command+B and Command+J toggle the explorer and tools. Xeon remembers the window's size and position, whether it
+was maximized, the explorer and tools widths and which of them are shown. Settings
 (the gear, or Xeon › Settings…) choose the theme, editor font size, tab width and
 whitespace trimming. `tools/screenshot.lisp` captures the window for review.
 
