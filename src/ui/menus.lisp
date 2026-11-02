@@ -93,6 +93,8 @@
                        :on-activate (action (workbench) (show-sidebar-view workbench :explorer)))
             (menu-item :label "Projects" :shortcut "Primary+Shift+P"
                        :on-activate (action (workbench) (show-sidebar-view workbench :projects)))
+            (menu-item :label "Source Control" :shortcut "Primary+Shift+G"
+                       :on-activate (action (workbench) (show-sidebar-view workbench :source-control)))
             (menu-item :label "Toggle Runtime Tools" :shortcut "Primary+J"
                        :on-activate (action (workbench) (toggle-tools workbench)))
             (menu-item :label "Toggle Markdown Preview" :shortcut "Primary+Shift+V"
@@ -124,7 +126,43 @@
                        :on-activate (action (workbench) (xeon.repl:repl-interrupt (tools-session (workbench-repl workbench)))))
             (menu-item :label "Disconnect" :enabled-function
                        (available (lambda () (not (eq :disconnected (repl-status (workbench-repl workbench))))))
-                       :on-activate (action (workbench) (xeon.repl:disconnect-repl (tools-session (workbench-repl workbench))))))))))
+                       :on-activate (action (workbench) (xeon.repl:disconnect-repl (tools-session (workbench-repl workbench))))))
+          (:widget (make-source-control-menu workbench))))))
+
+(defun make-source-control-menu (workbench)
+  (flet ((scm () (workbench-source-control workbench)))
+    (let* ((idle (lambda () (let ((scm (scm))) (and scm (scm-status scm) (not (scm-job scm))))))
+           (tracking (lambda () (and (funcall idle)
+                                     (let ((status (scm-status (scm))))
+                                       (and (xeon.folders:git-status-upstream status)
+                                            (not (xeon.folders:git-status-gone-p status))))))))
+      (ui (menu :title "Source Control"
+            (menu-item :label "Commit" :enabled-function (available (lambda () (enabled (part (scm) :commit))))
+                       :on-activate (action (workbench) (commit-changes (scm))))
+            (menu-item :label "Stage All Changes"
+                       :enabled-function (available (lambda () (and (funcall idle) (group-changes (scm) :changes))))
+                       :on-activate (action (workbench) (stage-all (scm))))
+            (menu-item :label "Unstage All Changes"
+                       :enabled-function (available (lambda () (and (funcall idle) (group-changes (scm) :staged))))
+                       :on-activate (action (workbench) (stage-all (scm) :unstage t)))
+            (menu-separator)
+            (menu-item :label "Pull" :enabled-function (available tracking)
+                       :on-activate (action (workbench) (pull-changes (scm))))
+            (menu-item :label "Push" :enabled-function (available tracking)
+                       :on-activate (action (workbench) (push-changes (scm))))
+            (menu-item :label "Fetch" :enabled-function (available (lambda () (and (funcall idle) (scm-remotes (scm)))))
+                       :on-activate (action (workbench) (fetch-changes (scm))))
+            (menu-item :label "Publish Branch"
+                       :enabled-function (available (lambda () (and (funcall idle) (eq :publish (sync-plan (scm))))))
+                       :on-activate (action (workbench) (publish-branch (scm))))
+            (menu-separator)
+            (menu-item :label "New Branch…" :enabled-function (available idle)
+                       :on-activate (action (workbench) (create-branch (scm))))
+            (menu-item :label "Switch to Branch…" :enabled-function (available idle)
+                       :on-activate (action (workbench) (switch-to-named-branch (scm))))
+            (menu-separator)
+            (menu-item :label "Refresh Source Control"
+                       :on-activate (action (workbench) (refresh-source-control workbench))))))))
 
 (defun install-shortcuts (workbench)
   (declare (ignore workbench)))

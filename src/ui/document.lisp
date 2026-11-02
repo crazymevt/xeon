@@ -17,6 +17,8 @@
    (listener :initform nil :accessor document-listener)
    (highlight-timer :initform nil :accessor document-highlight-timer)
    (views :initform '() :accessor document-views)
+   ;; For a generated document such as a diff, what it shows, for its tab's tooltip.
+   (description :initarg :description :initform nil :accessor document-description)
    (on-change :initarg :on-change :initform nil :accessor document-on-change)))
 
 (defmethod initialize-instance :after ((d document) &key)

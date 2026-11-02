@@ -32,7 +32,9 @@
 
 (defun document-tab-tooltip (d)
   (let ((path (document-path d)))
-    (if path (uiop:native-namestring path) "Not saved yet")))
+    (cond (path (uiop:native-namestring path))
+          ((document-description d))
+          (t "Not saved yet"))))
 
 (defun update-document-tab (workbench d)
   (let ((page (find-document-page workbench d))
@@ -154,6 +156,7 @@
   (update-document-tab workbench d)
   (update-title workbench)
   (refresh-status workbench)
+  (refresh-source-control workbench)
   (report workbench "Saved ~A" (document-name d)))
 
 (defun save-all-documents (workbench)

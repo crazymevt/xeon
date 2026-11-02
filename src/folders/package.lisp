@@ -5,6 +5,10 @@
   (:export #:git-status #:git-status-branch #:git-status-changes #:git-status-error #:read-git-status
            #:git-change #:git-change-path #:git-change-original #:git-change-index #:git-change-worktree
            #:git-change-conflict-p #:git-change-badge #:git-path-badge #:perform-git-action #:git-all-paths #:read-git-diff
+           #:git-status-head #:git-status-upstream #:git-status-ahead #:git-status-behind #:git-status-gone-p
+           #:git-status-detached-p #:git-status-unborn-p #:read-git-head-commit #:read-git-branches #:read-git-remotes
+           #:git-failed #:git-failed-action #:git-failed-output #:valid-git-branch-name-p
+           #:project-git-p #:file-icon-kind
            #:discover-folder-systems #:discovered-system-dialect #:discovered-system-name #:discovered-system-file #:system-action-source
            #:search-workspace #:start-workspace-search #:cancel-workspace-search #:workspace-search-status
            #:workspace-hit-path #:workspace-hit-buffer #:workspace-hit-revision #:workspace-hit-start #:workspace-hit-end

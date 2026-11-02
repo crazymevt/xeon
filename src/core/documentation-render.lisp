@@ -66,6 +66,8 @@
         (when (getf (docset:docset-manifest (reference-docset buffer)) key)
           (write-string "<p>" out) (esc (getf (docset:docset-manifest (reference-docset buffer)) key)) (write-string "</p>" out)))
       (write-string "</footer>" out)
-      (when interactive
+      (when (eq interactive :lgt)
+        (write-string "<script>document.addEventListener('click',function(e){const a=e.target.closest('a[data-entry],a[data-action]');if(!a)return;e.preventDefault();window.lgt.postMessage(a.dataset.entry?'entry:'+a.dataset.entry:'action:'+a.dataset.action);});</script>" out))
+      (when (and interactive (not (eq interactive :lgt)))
         (write-string "<script>document.addEventListener('click',function(e){const a=e.target.closest('a[data-entry],a[data-action]');if(!a)return;e.preventDefault();console.info('LUT_LOCAL_MESSAGE:'+JSON.stringify({entry:a.dataset.entry,action:a.dataset.action}));});</script>" out))
       (write-string "</body></html>" out))))

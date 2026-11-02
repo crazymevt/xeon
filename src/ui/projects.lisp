@@ -23,8 +23,9 @@
    (runs :initform (make-hash-table :test #'equal) :reader projects-runs)
    (widgets :initform (make-hash-table) :reader projects-widgets)))
 
-(defun part (projects name) (gethash name (projects-widgets projects)))
-(defun (setf part) (widget projects name) (setf (gethash name (projects-widgets projects)) widget))
+;;; The sidebar views keep their widgets by name in a WIDGETS table.
+(defun part (view name) (gethash name (slot-value view 'widgets)))
+(defun (setf part) (widget view name) (setf (gethash name (slot-value view 'widgets)) widget))
 
 (defun system-key (system)
   (list (namestring (xeon.folders:discovered-system-file system)) (xeon.folders:discovered-system-name system)))

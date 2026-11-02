@@ -11,6 +11,17 @@
            (finish-output *error-output*)))
        (progn ,@body)))
 
+#+sbcl
+(defun git-environment ()
+  "The process environment for Git. Xeon has no terminal to answer a credential prompt,
+so Git fails instead of waiting for one; and reading status takes no optional index
+lock, so it never makes the user's own Git commands fail."
+  (append '("GIT_TERMINAL_PROMPT=0" "GIT_OPTIONAL_LOCKS=0")
+          (remove-if (lambda (entry)
+                       (or (uiop:string-prefix-p "GIT_TERMINAL_PROMPT=" entry)
+                           (uiop:string-prefix-p "GIT_OPTIONAL_LOCKS=" entry)))
+                     (sb-ext:posix-environ))))
+
 (defun run-folder-git (directory arguments input)
   ;; File-backed I/O avoids SBCL's descriptor-copy/event wait path. In the
   ;; native GUI that path can sleep for its full ten-second timeout after Git
@@ -23,7 +34,8 @@
         (let ((process (uiop:launch-program
                         (append (list "git" "-C" (uiop:native-namestring directory)) arguments)
                         :input stdin :output stdout :error-output stderr
-                        :if-output-exists :supersede :if-error-output-exists :supersede)))
+                        :if-output-exists :supersede :if-error-output-exists :supersede
+                        #+sbcl :environment #+sbcl (git-environment))))
           (unwind-protect
                (progn
                  (loop while (uiop:process-alive-p process) do (sleep .005))

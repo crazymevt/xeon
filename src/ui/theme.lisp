@@ -11,6 +11,7 @@
     (:syntax-comment . :secondary-text) (:syntax-number . :system-orange)
     (:syntax-symbol . :system-teal) (:syntax-function . :system-purple)
     (:syntax-parameter . :system-indigo) (:inserted . :system-green) (:deleted . :system-red)
+    (:modified . :system-orange) (:renamed . :system-blue)
     (:sidebar-foreground . :secondary-text) (:accent . :accent))
   "The System theme's colors: the platform's own adaptable colors, which follow light and
 dark mode, increased contrast and the user's accent color.")
@@ -25,6 +26,8 @@ custom theme's color as a hex string."
       (case role
         (:inserted "#50B97D")
         (:deleted "#EB646E")
+        (:modified "#D9A441")
+        (:renamed "#5B9BE0")
         (t (rgb-hex (xeon.themes:theme-colour palette role))))))
 
 (defun palette-dark-p (palette)

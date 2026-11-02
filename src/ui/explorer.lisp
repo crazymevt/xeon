@@ -96,6 +96,7 @@
     (remember-folder workbench root-path)
     (follow-chat-folders workbench root-path)
     (projects-folder-changed workbench)
+    (source-control-folder-changed workbench)
     (update-title workbench)
     root-path))
 
@@ -184,14 +185,21 @@ as their parents arrive."
     (on tree :row-activated
         (lambda (event)
           (let ((node (event-item event)))
-            (when (node-p node) (activate-node workbench explorer node)))))
-    ;; A single click opens a file, as in the original Xeon explorer.
+            ;; Mouse activation is handled by the first click below. Keep Return.
+            (when (and (node-p node) (zerop (event-click-count event)))
+              (activate-node workbench explorer node)))))
+    ;; Let native selection finish first. Capture the target expansion state so
+    ;; native disclosure clicks do not toggle the folder twice.
     (on tree :mouse-down
         (lambda (event)
           (let ((node (explorer-node-at explorer event)))
-            (when (and node (not (node-directory-p node)) (= 1 (event-click-count event))
-                       (null (event-modifiers event)) (= 1 (event-button event)))
-              (after 0 (lambda () (activate-node workbench explorer node)))))))
+            (when (and node (= 1 (event-click-count event))
+                       (null (event-modifiers event)) (eq :left (event-button event)))
+              (if (node-directory-p node)
+                  (unless (node-link-p node)
+                    (let ((expand (not (item-expanded-p tree node))))
+                      (after 0 (lambda () (setf (item-expanded-p tree node) expand)))))
+                  (after 0 (lambda () (activate-node workbench explorer node))))))))
     (on tree :context-request
         (lambda (event)
           (let ((node (explorer-node-at explorer event)))

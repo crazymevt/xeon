@@ -18,8 +18,10 @@
 (defclass status-bar ()
   ((document :accessor status-document)
    (message :accessor status-message)
+   (signature :accessor status-signature)
    (position :accessor status-position)
    (language :accessor status-language)
+   (branch :accessor status-branch)
    (message-timer :initform nil :accessor status-message-timer)
    (box :accessor status-box)))
 
@@ -64,7 +66,8 @@
                      (selected (abs (- (anchor view) p))))
                 (format nil "Ln ~:D, Col ~D~[~:;  (~:*~:D selected)~]"
                         (1+ (position-line buffer p)) (1+ (position-column buffer p)) selected))
-              ""))))
+              ""))
+    (refresh-function-help workbench)))
 
 (defun refresh-status (workbench)
   (let ((d (active-document workbench))
@@ -73,7 +76,7 @@
           (if d
               (format nil "~A  ·  ~A  ·  ~:D character~:P"
                       (let ((path (document-path d)))
-                        (if path (document-name d) "Untitled document"))
+                        (if (or path (document-description d)) (document-name d) "Untitled document"))
                       (cond ((xeon.core:buffer-read-only-p (document-buffer d)) "Read only")
                             ((null (document-path d)) "New document")
                             ((document-modified-p d) "Edited")
@@ -100,14 +103,21 @@
 (defun make-status-bar (workbench)
   (let* ((status (make-instance 'status-bar))
          (language (make-instance 'combo-box :control-size :small :tooltip "Document language"))
+         (branch (make-instance 'button :style :flat :label "" :image (icon :branch :size 13 :color :secondary-text)
+                                        :control-size :small :visible nil))
          (box (ui (hbox :surface :status :padding '(3 12 3 12) :spacing 16
+                    (:widget branch)
                     (:widget (setf (status-document status) (status-label)))
                     (:widget (setf (status-message status) (status-label :text-color :accent)))
+                    (:widget (setf (status-signature status) (status-label :text-color :accent)))
                     (spacer)
                     (:widget (setf (status-position status) (status-label)))
                     (:widget language)))))
-    (setf (status-language status) language (status-box status) box
+    (setf (status-language status) language (status-box status) box (status-branch status) branch
           (workbench-status workbench) status)
+    (on branch :clicked (lambda (event)
+                          (declare (ignore event))
+                          (with-reported-errors (workbench) (show-branch-menu workbench branch))))
     (on language :changed
         (lambda (event)
           (let ((d (active-document workbench))
@@ -131,8 +141,10 @@
         (setf (divider-position (workbench-outer-split workbench)) (workbench-sidebar-width workbench)))
       (refresh-rail workbench)
       (schedule-layout-save workbench))
-    (when (and show (eq :projects (workbench-sidebar-view workbench)))
-      (discover-projects workbench))
+    (when show
+      (case (workbench-sidebar-view workbench)
+        (:projects (discover-projects workbench))
+        (:source-control (refresh-source-control workbench))))
     show))
 
 (defun sidebar-view-shown-p (workbench view)
@@ -140,7 +152,7 @@
        (pane-shown-p (workbench-sidebar workbench))))
 
 (defun show-sidebar-view (workbench view)
-  "Shows the sidebar with VIEW, :EXPLORER or :PROJECTS, in it."
+  "Shows the sidebar with VIEW, :EXPLORER, :PROJECTS or :SOURCE-CONTROL, in it."
   (let ((page (getf (workbench-sidebar-pages workbench) view)))
     (unless page (error "Unknown sidebar view ~S." view))
     (unless (eq view (workbench-sidebar-view workbench))
@@ -203,7 +215,7 @@
     (dolist (button (rail-buttons workbench))
       (let* ((glyph (user-data button))
              (active (case glyph
-                       ((:explorer :projects) (sidebar-view-shown-p workbench glyph))
+                       ((:explorer :projects :source-control) (sidebar-view-shown-p workbench glyph))
                        (:terminal (visible (workbench-tools workbench)))
                        (:chat (active-chat workbench)))))
         (setf (image button) (if (or active (eq glyph :settings))
@@ -217,6 +229,9 @@
                                 (sidebar-rail-action workbench :explorer)))
           (:widget (rail-button :projects "Projects" (format nil "Projects · ~A" (shortcut-label "Primary+Shift+P"))
                                 (sidebar-rail-action workbench :projects)))
+          (:widget (rail-button :source-control "Source Control"
+                                (format nil "Source Control · ~A" (shortcut-label "Primary+Shift+G"))
+                                (sidebar-rail-action workbench :source-control)))
           (:widget (rail-button :terminal "Runtime tools" (format nil "Toggle runtime tools · ~A" (shortcut-label "Primary+J"))
                                 (lambda () (toggle-tools workbench))))
           (:widget (rail-button :chat "AI Chat" (format nil "New AI chat · ~A" (shortcut-label "Primary+Alt+N"))
@@ -355,7 +370,7 @@ configuration directory.")
     (ignore-errors (restore-window-frame (workbench-window workbench) (getf saved :frame))))
   (setf (divider-position (workbench-outer-split workbench)) (workbench-sidebar-width workbench))
   (let ((view (getf saved :sidebar-view)))
-    (when (and (member view '(:explorer :projects)) (not (eq view (workbench-sidebar-view workbench))))
+    (when (and (member view '(:explorer :projects :source-control)) (not (eq view (workbench-sidebar-view workbench))))
       (setf (workbench-sidebar-view workbench) view)
       (select-page (workbench-sidebar-stack workbench) (getf (workbench-sidebar-pages workbench) view))))
   (when (and saved (not (getf saved :sidebar-shown))) (toggle-sidebar workbench nil))
@@ -394,6 +409,7 @@ editor take the difference."
       (when (and explorer (explorer-root explorer))
         (refresh-tree (explorer-tree explorer))))
     (restyle-projects workbench)
+    (restyle-source-control workbench)
     (refresh-rail workbench)
     (restyle-previews workbench)
     (restyle-chats workbench)
@@ -422,12 +438,15 @@ REMEMBER-FRAME NIL neither restores nor saves the window frame and pane layout."
     (let* ((rail (make-rail workbench))
            (sidebar-stack (let ((stack (make-instance 'stack))
                                 (explorer (make-explorer-panel workbench))
-                                (projects (make-projects-panel workbench)))
+                                (projects (make-projects-panel workbench))
+                                (source-control (make-source-control-panel workbench)))
                             (add-page stack explorer "Explorer")
                             (add-page stack projects "Projects")
+                            (add-page stack source-control "Source Control")
                             (setf (workbench-sidebar-stack workbench) stack
                                   (workbench-sidebar-pages workbench)
-                                  (list :explorer explorer :projects projects))
+                                  (list :explorer explorer :projects projects
+                                        :source-control source-control))
                             stack))
            (sidebar (ui (vbox :surface :sidebar :spacing 0
                           (:widget sidebar-stack :expand t))))
@@ -487,6 +506,8 @@ REMEMBER-FRAME NIL neither restores nor saves the window frame and pane layout."
                             (schedule-layout-save workbench))))
       (on window :moved (lambda (e) (declare (ignore e)) (schedule-layout-save workbench)))
       (on window :shown (lambda (e) (declare (ignore e)) (keep-pane-widths workbench)))
+      ;; Coming back to the window, perhaps after using Git elsewhere: read the status again.
+      (on window :activated (lambda (e) (declare (ignore e)) (refresh-source-control workbench)))
       ;; Light and dark mode switched: icons drawn in system colors are drawn again,
       ;; and a System palette follows the new mode.
       (on window :appearance-changed (lambda (e) (declare (ignore e)) (apply-theme workbench)))

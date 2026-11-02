@@ -5,6 +5,7 @@
 
 (defclass editor-view (code-view)
   ((document :initarg :document :reader view-document)
+   (help-timer :initform nil :accessor view-help-timer)
    (completion :initform nil :accessor view-completion)
    (completion-timer :initform nil :accessor view-completion-timer)
    (accepting :initform nil :accessor view-accepting))
@@ -103,7 +104,42 @@
             (show-completion-popup popup view :items items)
             (when (surface-shown-p popup) (close-surface popup)))))))
 
+(defun editor-function-help (view position &key hover)
+  (when (lisp-document-p (view-document view))
+    (ignore-errors
+      (xeon.syntax:function-help-at
+       (document-syntax (view-document view)) position :hover hover))))
+
+(defun refresh-function-help (workbench)
+  (let* ((view (active-editor workbench))
+         (label (status-signature (workbench-status workbench)))
+         (signature (and view (editor-function-help view (cursor view))))
+         (caption (or signature "")))
+    (unless (equal caption (text label))
+      (setf (text label) caption))))
+
+(defun clear-hover-help (view)
+  (when (view-help-timer view)
+    (stop-timer (view-help-timer view))
+    (setf (view-help-timer view) nil))
+  (when (tooltip view) (setf (tooltip view) nil)))
+
+(defun schedule-hover-help (view event)
+  (clear-hover-help view)
+  (let ((x (event-x event)) (y (event-y event)))
+    (setf (view-help-timer view)
+          (after 0.15
+            (lambda ()
+              (setf (view-help-timer view) nil)
+              (unless (destroyed-p view)
+                (multiple-value-bind (signature doc)
+                    (editor-function-help view (position-at-point view x y) :hover t)
+                  (when signature
+                    (setf (tooltip view)
+                          (if doc (format nil "~A~%~%~A" signature doc) signature))))))))))
+
 (defun release-editor-view (view)
+  (clear-hover-help view)
   (when (view-completion-timer view)
     (stop-timer (view-completion-timer view)))
   (when (view-completion view)
@@ -118,6 +154,24 @@
                              :font (editor-font (workbench-themes workbench))
                              :tab-width (xeon.themes:editor-tab-size (workbench-themes workbench))
                              :text-styles (syntax-text-styles (workbench-palette workbench)))))
+    ;; LGT supplies text-local pointer coordinates for native hover tracking.
+    (on view :mouse-move (lambda (event) (schedule-hover-help view event)))
+    (on view :mouse-leave (lambda (event) (declare (ignore event)) (clear-hover-help view)))
+    (on view :changed (lambda (event) (declare (ignore event)) (clear-hover-help view)))
+    (on view :context-request
+        (lambda (event)
+          (when (eq :common-lisp (document-language document))
+            (with-reported-errors (workbench)
+              (let* ((position (position-at-point view (event-x event) (event-y event)))
+                     (start (min (cursor view) (anchor view)))
+                     (end (max (cursor view) (anchor view))))
+                ;; Preserve a selection only when the click is inside it.
+                (unless (and (< start end) (<= start position) (< position end))
+                  (set-selection view position position))
+                (push-selection view)
+                (popup-menu (source-documentation-menu workbench view)
+                            view (event-x event) (event-y event))
+                (consume event))))))
     (push view (document-views document))
     (restart-highlighting document)
     view))

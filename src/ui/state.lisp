@@ -18,7 +18,8 @@
    (status :accessor workbench-status)
    (explorer :initform nil :accessor workbench-explorer)
    (projects :initform nil :accessor workbench-projects)
-   ;; The sidebar shows one view at a time: :explorer or :projects.
+   (source-control :initform nil :accessor workbench-source-control)
+   ;; The sidebar shows one view at a time: :explorer, :projects or :source-control.
    (sidebar-stack :accessor workbench-sidebar-stack)
    (sidebar-pages :initform '() :accessor workbench-sidebar-pages)
    (sidebar-view :initform :explorer :accessor workbench-sidebar-view)

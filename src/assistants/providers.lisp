@@ -215,6 +215,8 @@
        (let* ((event (jget object "event")) (kind (jget event "type")))
          (cond ((equal kind "message_start")
                 (setf (gethash "claude-message-id" (session-streamed session)) (jget event "message" "id")))
+               ((equal kind "content_block_start")
+                (setf (gethash "claude-block-index" (session-streamed session)) (jget event "index")))
                ((equal kind "content_block_delta")
                 (when (equal (jget event "delta" "type") "text_delta")
                   (record-item-text session (list (gethash "claude-message-id" (session-streamed session)) (jget event "index"))
@@ -222,11 +224,21 @@
       ((and (equal type "system") (equal (jget object "subtype") "init"))
        (setf (session-conversation session) (jget object "session_id")))
       ((equal type "assistant")
-       (loop for block in (jlist (jget object "message" "content")) for index from 0 do
-         (cond ((equal (jget block "type") "text")
-                (record-item-text session (list (jget object "message" "id") index) (or (jget block "text") "")))
-               ((equal (jget block "type") "tool_use")
-                (session-update session :text (format nil "~%[~A]~%" (jget block "name")))))))
+       ;; Claude Code sends each finished content block as its own assistant event,
+       ;; so a block's position there is not its stream index (a thinking block or
+       ;; tool call can come first). The block just streamed has the same key, so
+       ;; its text is not shown twice.
+       (let* ((id (jget object "message" "id"))
+              (blocks (jlist (jget object "message" "content")))
+              (streamed (session-streamed session))
+              (stream-index (and (= 1 (length blocks))
+                                 (equal id (gethash "claude-message-id" streamed))
+                                 (gethash "claude-block-index" streamed))))
+         (loop for block in blocks for index from 0 do
+           (cond ((equal (jget block "type") "text")
+                  (record-item-text session (list id (or stream-index index)) (or (jget block "text") "")))
+                 ((equal (jget block "type") "tool_use")
+                  (session-update session :text (format nil "~%[~A]~%" (jget block "name"))))))))
       ((equal type "result")
        (setf (session-conversation session) (or (jget object "session_id") (session-conversation session)))
        (let* ((usage (jget object "usage")) (model-usage (let ((models (jget object "modelUsage")))

@@ -12,6 +12,8 @@
     (:outline . #xe8ef) (:add . #xe145) (:play . #xe037) (:stop . #xe047)
     (:circle . #xe061) (:error . #xe000) (:warning . #xe002) (:info . #xe88e)
     (:projects . #xe1a1)
+    (:source-control . #xebac) (:branch . #xe0b6) (:sync . #xe627) (:more . #xe5d3)
+    (:check . #xe5ca) (:publish . #xe2c3) (:commit . #xeaf5)
     (:lisp . #xe86f) (:clojure . #xe86f) (:racket . #xe86f)))
 
 (defparameter *icon-font* "Material Icons")

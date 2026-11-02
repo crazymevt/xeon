@@ -35,6 +35,28 @@
     (let ((changed (xeon.assistants:session-snapshot session :text-since-revision revision)))
       (check (equal "λ transcript changed" (getf changed :text)))
       (check (> (getf changed :revision) revision))))
+  ;; Claude Code sends each finished block as its own assistant event, where a
+  ;; text block is at position 0 even when a thinking block or tool call came
+  ;; first in the stream. Streamed text must not be shown a second time.
+  (let ((session (xeon.assistants::%session :provider :claude :directory (uiop:temporary-directory))))
+    (dolist (line '("{\"type\":\"stream_event\",\"event\":{\"type\":\"message_start\",\"message\":{\"id\":\"m1\"}}}"
+                    "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\"}}}"
+                    "{\"type\":\"assistant\",\"message\":{\"id\":\"m1\",\"content\":[{\"type\":\"thinking\",\"thinking\":\"hmm\"}]}}"
+                    "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}}"
+                    "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"Hello \"}}}"
+                    "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"there.\"}}}"
+                    "{\"type\":\"assistant\",\"message\":{\"id\":\"m1\",\"content\":[{\"type\":\"text\",\"text\":\"Hello there.\"}]}}"
+                    "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"index\":2,\"content_block\":{\"type\":\"tool_use\"}}}"
+                    "{\"type\":\"assistant\",\"message\":{\"id\":\"m1\",\"content\":[{\"type\":\"tool_use\",\"name\":\"Read\"}]}}"
+                    "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_start\",\"message\":{\"id\":\"m2\"}}}"
+                    "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}}"
+                    "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Done.\"}}}"
+                    "{\"type\":\"assistant\",\"message\":{\"id\":\"m2\",\"content\":[{\"type\":\"text\",\"text\":\"Done.\"}]}}"))
+      (xeon.assistants::claude-message session (xeon.assistants::parse-json line)))
+    (let ((texts (loop for m in (xeon.assistants::session-messages session)
+                       when (eq :assistant (getf m :role)) collect (getf m :text))))
+      (check (equal '("Hello there." "Done.") texts))
+      (check (= 1 (count "Hello there." texts :test #'equal)))))
   (let* ((session (xeon.assistants:make-session :codex (uiop:temporary-directory)))
          (prompt (xeon.assistants::normalize-prompt session "confirm" "mcpServer/elicitation/request"
                    (xeon.assistants::jobj "mode" "form" "message" "Allow Computer Use?"))))
