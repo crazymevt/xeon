@@ -361,14 +361,15 @@ arguments."
 (defun chat-theme-object (palette)
   (if (native-palette-p palette)
       (chat-object "scheme" "light dark"
-                   "bg" "-apple-system-text-background" "fg" "-apple-system-label"
-                   "muted" "-apple-system-secondary-label"
-                   "surface" "light-dark(#f5f5f7,#262628)" "user" "color-mix(in srgb,-apple-system-control-accent 22%,transparent)"
-                   "border" "-apple-system-separator" "accent" "-apple-system-control-accent"
-                   "code" "light-dark(rgba(0,0,0,.05),rgba(255,255,255,.07))" "warn" "-apple-system-orange"
-                   "kw" "-apple-system-pink" "str" "-apple-system-red" "comment" "-apple-system-secondary-label"
-                   "number" "-apple-system-orange" "symbol" "-apple-system-teal" "function" "-apple-system-purple"
-                   "parameter" "-apple-system-indigo")
+                   "bg" (native-css :content-background) "fg" (native-css :text)
+                   "muted" (native-css :secondary-text)
+                   "surface" "light-dark(#f5f5f7,#262628)"
+                   "user" (format nil "color-mix(in srgb,~A 22%,transparent)" (native-css :accent))
+                   "border" (native-css :separator) "accent" (native-css :accent)
+                   "code" "light-dark(rgba(0,0,0,.05),rgba(255,255,255,.07))" "warn" (native-css :system-orange)
+                   "kw" (native-css :system-pink) "str" (native-css :system-red) "comment" (native-css :secondary-text)
+                   "number" (native-css :system-orange) "symbol" (native-css :system-teal)
+                   "function" (native-css :system-purple) "parameter" (native-css :system-indigo))
       (flet ((c (role) (palette-color palette role)))
         (chat-object "scheme" (if (palette-dark-p palette) "dark" "light")
                      "bg" (c :editor-background) "fg" (c :editor-foreground) "muted" (c :sidebar-foreground)

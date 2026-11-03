@@ -1,6 +1,7 @@
 /build/
 /.cadre/
 /native/http/
+/native/http-windows-*/
 *.fasl
 __pycache__/
 .DS_Store

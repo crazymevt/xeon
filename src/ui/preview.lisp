@@ -16,22 +16,22 @@
   "CSS custom properties for the preview: the platform's own colors for the System
 theme, which follow light and dark mode, otherwise the custom theme's colors."
   (flet ((css (role native)
-           (if (native-palette-p palette) native (palette-color palette role))))
+           (if (native-palette-p palette) (native-css native) (palette-color palette role))))
     (format nil "--fg:~A;--muted:~A;--accent:~A;--rule:~A;--code:~A;--kw:~A;--str:~A;--comment:~A;--number:~A;--symbol:~A;--function:~A;--parameter:~A"
-            (css :editor-foreground "-apple-system-label")
-            (css :syntax-comment "-apple-system-secondary-label")
-            (css :accent "-apple-system-control-accent")
-            (if (native-palette-p palette) "-apple-system-separator" (palette-color palette :border))
+            (css :editor-foreground :text)
+            (css :syntax-comment :secondary-text)
+            (css :accent :accent)
+            (css :border :separator)
             (if (native-palette-p palette)
                 "light-dark(rgba(0,0,0,.045),rgba(255,255,255,.06))"
                 (palette-color palette :sidebar-background))
-            (css :syntax-keyword "-apple-system-pink")
-            (css :syntax-string "-apple-system-red")
-            (css :syntax-comment "-apple-system-secondary-label")
-            (css :syntax-number "-apple-system-orange")
-            (css :syntax-symbol "-apple-system-teal")
-            (css :syntax-function "-apple-system-purple")
-            (css :syntax-parameter "-apple-system-indigo"))))
+            (css :syntax-keyword :system-pink)
+            (css :syntax-string :system-red)
+            (css :syntax-comment :secondary-text)
+            (css :syntax-number :system-orange)
+            (css :syntax-symbol :system-teal)
+            (css :syntax-function :system-purple)
+            (css :syntax-parameter :system-indigo))))
 
 (defun preview-background (palette)
   (if (native-palette-p palette) "transparent" (palette-color palette :editor-background)))
@@ -44,7 +44,7 @@ editor sends and turns link clicks into messages."
 <style id='colors'>:root{~A}html{background:~A}</style>
 <style>
 html{color-scheme:light dark;color:var(--fg)}
-body{margin:0;font:15px/1.65 -apple-system,BlinkMacSystemFont,sans-serif;overflow-wrap:anywhere;-webkit-font-smoothing:antialiased}
+body{margin:0;font:15px/1.65 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow-wrap:anywhere;-webkit-font-smoothing:antialiased}
 main{max-width:820px;margin:0 auto;padding:28px 36px 60px}
 main>:first-child{margin-top:0}
 h1,h2,h3,h4,h5,h6{line-height:1.3;margin:1.6em 0 .6em;font-weight:650}

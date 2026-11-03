@@ -104,7 +104,7 @@
 
 (defun open-document (workbench path)
   "Opens the file PATH, or shows it if it is already open."
-  (let* ((path (uiop:ensure-pathname path :want-file t))
+  (let* ((path (uiop:ensure-pathname path :want-file t :namestring :native))
          (existing (find-if (lambda (d)
                               (let ((p (document-path d)))
                                 (and p (equal (ignore-errors (truename p)) (ignore-errors (truename path))))))

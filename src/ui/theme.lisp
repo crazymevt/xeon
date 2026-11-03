@@ -18,6 +18,22 @@ dark mode, increased contrast and the user's accent color.")
 
 (defun native-palette-p (palette) (eq palette :native))
 
+(defparameter *native-css*
+  '((:text . "-apple-system-label") (:secondary-text . "-apple-system-secondary-label")
+    (:accent . "-apple-system-control-accent") (:separator . "-apple-system-separator")
+    (:content-background . "-apple-system-text-background")
+    (:system-pink . "-apple-system-pink") (:system-red . "-apple-system-red")
+    (:system-orange . "-apple-system-orange") (:system-teal . "-apple-system-teal")
+    (:system-purple . "-apple-system-purple") (:system-indigo . "-apple-system-indigo"))
+  "WebKit's names for the platform colors web views use in the System theme.")
+
+(defun native-css (name)
+  "CSS for the platform color NAME, a system color keyword. WebKit on macOS knows these
+colors by name and follows light and dark mode itself; other web engines get the color as
+it is now, and Xeon restyles its web views when the appearance changes."
+  #+darwin (cdr (assoc name *native-css*))
+  #-darwin (color-hex (system-color name)))
+
 (defun palette-color (palette role)
   "The color for ROLE: a system color keyword for the System theme, otherwise the
 custom theme's color as a hex string."
