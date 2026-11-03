@@ -61,11 +61,20 @@ jobs:
           $root = "$env:ProgramFiles\Steel Bank Common Lisp"
           $exe = Get-ChildItem $root -Filter sbcl.exe -Recurse | Select-Object -First 1
           $core = Get-ChildItem $root -Filter sbcl.core -Recurse | Select-Object -First 1
-          $notice = Get-ChildItem $root -Filter COPYING -Recurse | Select-Object -First 1
-          if (!$exe -or !$core -or !$notice) { throw 'SBCL runtime or notice is missing' }
+          if (!$exe -or !$core) { throw 'SBCL executable or core image is missing' }
+          $notice = Get-ChildItem $root -Filter 'COPYING*' -File -Recurse | Select-Object -First 1
+          if ($notice) {
+            $noticePath = $notice.FullName
+          } else {
+            $env:SBCL_HOME = $core.DirectoryName
+            $version = (& $exe.FullName --version).Trim() -replace '^SBCL ', ''
+            if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Unexpected SBCL version: $version" }
+            $noticePath = Join-Path $PWD 'build/SBCL-COPYING'
+            Invoke-WebRequest "https://raw.githubusercontent.com/sbcl/sbcl/sbcl-$version/COPYING" -OutFile $noticePath
+          }
           "XEON_SBCL=$($exe.FullName)" >> $env:GITHUB_ENV
           "XEON_SBCL_HOME=$($core.DirectoryName)" >> $env:GITHUB_ENV
-          "XEON_SBCL_NOTICE=$($notice.FullName)" >> $env:GITHUB_ENV
+          "XEON_SBCL_NOTICE=$noticePath" >> $env:GITHUB_ENV
       - name: Resolve Lisp dependencies
         shell: bash
         run: |
