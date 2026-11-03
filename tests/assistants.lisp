@@ -170,8 +170,8 @@
                     (xeon.assistants:change-session-directory resumed store)
                     (await-assistant-state resumed
                       (lambda (state) (and (eq :ready (getf state :status))
-                        (equal (truename store) (xeon.assistants:session-directory resumed)))))
-                    (check (not (equal old-id (xeon.assistants:session-history-id resumed))))
+                        (equal (truename store) (xeon.assistants:session-directory resumed))
+                        (not (equal old-id (xeon.assistants:session-history-id resumed))))))
                     (check (null (getf (xeon.assistants:session-snapshot resumed) :messages)))))
               (xeon.assistants:stop-session resumed :wait t)
               (xeon.assistants:stop-session fresh :wait t))))
