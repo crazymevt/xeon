@@ -150,6 +150,9 @@ bool spawn(Terminal &t,const char *cwd,const char *shell) {
   CloseHandle(in);CloseHandle(out);
   if(FAILED(hr)) { fail("CreatePseudoConsole failed; Windows 10 1809 or newer is required."); return false; }
   STARTUPINFOEXW si{};si.StartupInfo.cb=sizeof(si);
+  // Null standard handles let ConPTY attach its own console streams even
+  // when Xeon runs with redirected input or output.
+  si.StartupInfo.dwFlags=STARTF_USESTDHANDLES;
   SIZE_T size=0; InitializeProcThreadAttributeList(nullptr,1,0,&size);
   std::vector<unsigned char> attributes(size);
   si.lpAttributeList=reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(attributes.data());

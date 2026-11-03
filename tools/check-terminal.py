@@ -57,7 +57,7 @@ def wait_for(t, predicate, timeout=8):
         if predicate(s):
             return s
         time.sleep(.015)
-    raise AssertionError('terminal timed out: ' + repr(s[-1500:]))
+    raise AssertionError('terminal timed out: ' + repr(s.rstrip()[-1500:]))
 
 check(bind('abi', integer)() == 2)
 command_running = bind('command_running', integer, ptr)
@@ -103,7 +103,7 @@ finally:
 # Real OS terminal, including working directory with spaces and Unicode.
 import tempfile
 with tempfile.TemporaryDirectory(prefix='krypton terminal λ ') as directory:
-    t = create(24, 80)
+    t = create(24, 120)
     try:
         shell = b'cmd.exe' if os.name == 'nt' else b'/bin/sh'
         check(start(t, directory.encode('utf-8'), shell) == 1)
