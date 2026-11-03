@@ -40,7 +40,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           python tools/ci-run.py --log build/apt-update.log -- sudo apt-get update
-          python tools/ci-run.py --log build/install.log -- sudo apt-get install -y sbcl libgtk-4-1 libsqlite3-0
+          python tools/ci-run.py --log build/install.log -- sudo apt-get install -y sbcl libgtk-4-1 libharfbuzz-gobject0 libsqlite3-0
           echo "XEON_SBCL=$(command -v sbcl)" >> "$GITHUB_ENV"
           echo "XEON_SBCL_HOME=/usr/lib/sbcl" >> "$GITHUB_ENV"
           echo "XEON_SBCL_NOTICE=/usr/share/doc/sbcl/copyright" >> "$GITHUB_ENV"

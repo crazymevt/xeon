@@ -26,7 +26,7 @@ def linux_deb(stage, output, machine):
     (control / "control").write_text(
         "Package: xeon-ide\nVersion: 0.1.0\nArchitecture: amd64\n"
         "Maintainer: Jessie Hughart\n"
-        "Depends: libc6, libstdc++6, libgtk-4-1 (>= 4.14), libsqlite3-0\n"
+        "Depends: libc6, libstdc++6, libgtk-4-1 (>= 4.14), libharfbuzz-gobject0, libsqlite3-0\n"
         "Description: Xeon Lisp IDE\n", encoding="utf-8")
     application = deb / "opt/xeon"
     application.parent.mkdir()
