@@ -12,7 +12,8 @@ initial thread in a fresh process, not the editor or a Swank worker thread."
      (let ((*print-readably* t) (*print-pretty* nil))
        (list "sbcl" "--noinform" "--non-interactive"
              "--eval" "(require :asdf)"
-             "--eval" (format nil "(asdf:load-asd ~S)" (uiop:native-namestring (discovered-system-file system)))
+             "--eval" (format nil "(asdf:load-asd (uiop:parse-native-namestring ~S))"
+                              (uiop:native-namestring (discovered-system-file system)))
              "--eval" (format nil "(asdf:load-system ~S)" (discovered-system-name system))
              "--eval"
              (format nil "(let ((entry (asdf/system:component-entry-point (asdf:find-system ~S)))) (unless entry (error ~S)) (uiop:call-function entry))"

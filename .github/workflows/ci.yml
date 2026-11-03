@@ -21,7 +21,7 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Install SBCL on macOS
         if: runner.os == 'macOS'
         run: python tools/ci-run.py --log build/install.log -- brew install sbcl
@@ -49,12 +49,6 @@ jobs:
         run: python tools/ci-run.py --log build/backend.log -- sbcl --noinform --no-sysinit --no-userinit --non-interactive --load tests/run.lisp
       - name: Local SBCL REPL integration
         run: python tools/ci-run.py --log build/repl.log -- sbcl --noinform --no-sysinit --no-userinit --non-interactive --load tools/check-repl.lisp
-      - name: Retain logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-${{ matrix.os }}
-          path: build/*.log
   terminal:
     strategy:
       fail-fast: false
@@ -62,20 +56,14 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version: '3.12'
       - name: Build vendored terminal bridge
         run: python tools/ci-run.py --log build/terminal-build.log -- python tools/build-terminal.py
       - name: Emulator and real PTY / ConPTY checks
         run: python tools/ci-run.py --log build/terminal-test.log -- python tools/check-terminal.py
-      - name: Retain logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: terminal-${{ matrix.os }}
-          path: build/terminal-*.log
   package:
     needs: [test, terminal]
     if: github.event_name != 'pull_request'
@@ -86,12 +74,12 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version: '3.12'
       - name: Check out LGT
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           repository: crazymevt/lgt
           ref: 5936a0bb1e7e38140fbd0dac36a2e223bab99c9c
@@ -99,7 +87,7 @@ jobs:
           persist-credentials: false
       - name: Check out GTK Lisp bindings
         if: runner.os == 'Linux'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           repository: crazymevt/gtk4
           ref: 4f7ac6daf9de3f4fce1ca75b0f5dbf56681fac70
@@ -162,14 +150,8 @@ jobs:
             --output build/dist --quicklisp quicklisp --sbcl "$XEON_SBCL" \
             --sbcl-home "$XEON_SBCL_HOME" --sbcl-notice "$XEON_SBCL_NOTICE"
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: xeon-${{ matrix.os }}
           path: build/dist/xeon-*
           if-no-files-found: error
-      - name: Upload build logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: package-logs-${{ matrix.os }}
-          path: build/*.log
