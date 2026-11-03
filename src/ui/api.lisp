@@ -39,7 +39,7 @@
 (defun api-buffer (page) (document-buffer (page-document page)))
 
 (defun api-pages (workbench)
-  (remove-if-not (lambda (page) (typep page 'api-page)) (children (workbench-tabs workbench))))
+  (remove-if-not (lambda (page) (typep page 'api-page)) (all-tab-pages workbench)))
 
 (defun active-api-page (workbench)
   (let ((page (selected-page (workbench-tabs workbench))))
@@ -60,7 +60,7 @@
   (let ((page (find-document-page workbench document)))
     (if (and (typep page 'api-page) (api-dirty page))
         (progn
-          (select-page (workbench-tabs workbench) page)
+          (show-page workbench page)
           (api-message page "Apply or Revert the builder changes first.")
           (report workbench "API builder has unapplied changes. Choose Apply or Revert.")
           nil)
@@ -737,7 +737,7 @@ recognised Authorization header was. Unrecognised schemes stay ordinary headers.
                                            :tab-icon (icon :api :size 14))
       (update-document-tab workbench document)
       (unless *background-document-operation*
-        (select-page (workbench-tabs workbench) page))
+        (show-page workbench page))
       (when scratch (close-document workbench scratch t)))
     (refresh-environment-choices workbench)
     (handler-case (api-load-builder page)

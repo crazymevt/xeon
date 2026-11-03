@@ -358,7 +358,7 @@
   (:default-initargs :spacing 0))
 
 (defun environments-page (workbench)
-  (find-if (lambda (p) (typep p 'environments-page)) (children (workbench-tabs workbench))))
+  (find-if (lambda (p) (typep p 'environments-page)) (all-tab-pages workbench)))
 
 (defun environment-scope-label (environment)
   (if (eq :system (xeon.http:environment-scope environment))
@@ -584,5 +584,5 @@
                      :tab-icon (icon :key :size 14))
       (setf (divider-position (part page :split)) 240)
       (refresh-environment-list page (or environment (current-api-environment workbench))))
-    (select-page tabs page)
+    (show-page workbench page)
     page))

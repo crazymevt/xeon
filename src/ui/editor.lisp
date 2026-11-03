@@ -150,6 +150,7 @@
   (let ((view (make-instance 'editor-view
                              :document document
                              :buffer (document-text document)
+                             :palette (editor-theme-colors (workbench-palette workbench))
                              :editable (not (xeon.core:buffer-read-only-p (document-buffer document)))
                              :font (editor-font (workbench-themes workbench))
                              :tab-width (xeon.themes:editor-tab-size (workbench-themes workbench))

@@ -46,6 +46,32 @@ custom theme's color as a hex string."
         (:renamed "#5B9BE0")
         (t (rgb-hex (xeon.themes:theme-colour palette role))))))
 
+(defun widget-theme-colors (theme)
+  "Translate a custom Xeon theme into LGT's inheritable widget colors."
+  (unless (native-palette-p theme)
+    (loop for (role source) in
+          '((:window-background :window-background)
+            (:text :window-foreground)
+            (:secondary-text :sidebar-foreground)
+            (:background :input-background)
+            (:control-background :sidebar-background)
+            (:content-background :editor-background)
+            (:sidebar-background :sidebar-background)
+            (:activity-background :activity-background)
+            (:status-background :status-background)
+            (:toolbar-background :tab-background)
+            (:popover-background :sidebar-background)
+            (:accent :accent) (:separator :border)
+            (:selection :selection-background) (:selection-text :selection-foreground)
+            (:caret :caret) (:gutter-background :line-number-background)
+            (:gutter-text :line-number-foreground))
+          append (list role (palette-color theme source)))))
+
+(defun editor-theme-colors (theme)
+  (unless (native-palette-p theme)
+    (list :background (palette-color theme :editor-background)
+          :text (palette-color theme :editor-foreground))))
+
 (defun palette-dark-p (palette)
   (if (native-palette-p palette)
       (dark-mode-p)

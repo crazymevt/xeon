@@ -9,7 +9,10 @@
    (documents :initform '() :accessor workbench-documents)
    (untitled-count :initform 0 :accessor workbench-untitled-count)
    ;; Widgets
-   (tabs :accessor workbench-tabs)
+   ;; The editor groups, each a tabbed pane; several when the editor is split.
+   (groups :initform '() :accessor workbench-groups)
+   (active-tabs :initform nil :accessor workbench-active-tabs)
+   (editor-area :accessor workbench-editor-area)
    (outer-split :accessor workbench-outer-split)
    (inner-split :accessor workbench-inner-split)
    (sidebar :accessor workbench-sidebar)
@@ -33,6 +36,45 @@
    (remember-layout :initarg :remember-layout :initform t :reader workbench-remember-layout)
    (layout-timer :initform nil :accessor workbench-layout-timer))
   (:documentation "One Xeon window: its documents, panes and runtime tools."))
+
+;;; Editor groups. The editor area holds one tabbed pane, or several split side by
+;;; side or one above another. Commands act on the active group: the one holding the
+;;; keyboard focus, otherwise the one used last.
+
+(defun inside-p (widget ancestor)
+  (loop for w = widget then (parent w)
+        while w
+        thereis (eq w ancestor)))
+
+(defun group-of (workbench widget)
+  "The editor group WIDGET is in, or NIL."
+  (find-if (lambda (group) (inside-p widget group)) (workbench-groups workbench)))
+
+(defun workbench-tabs (workbench)
+  "The active editor group."
+  (let* ((focused (ignore-errors (focused-widget)))
+         (group (and focused (group-of workbench focused))))
+    (when group (setf (workbench-active-tabs workbench) group))
+    (let ((active (workbench-active-tabs workbench)))
+      (if (and active (member active (workbench-groups workbench)) (not (destroyed-p active)))
+          active
+          (setf (workbench-active-tabs workbench) (first (workbench-groups workbench)))))))
+
+(defun (setf workbench-tabs) (group workbench)
+  "Adds GROUP to the editor groups if it is new, and makes it the active one."
+  (unless (member group (workbench-groups workbench))
+    (setf (workbench-groups workbench) (append (workbench-groups workbench) (list group))))
+  (setf (workbench-active-tabs workbench) group))
+
+(defun all-tab-pages (workbench)
+  "The pages of every editor group."
+  (loop for group in (workbench-groups workbench) append (copy-list (children group))))
+
+(defun show-page (workbench page)
+  "Selects PAGE in its editor group and makes that group the active one."
+  (let ((group (parent page)))
+    (setf (workbench-active-tabs workbench) group)
+    (select-page group page)))
 
 (defvar *workbench* nil
   "The workbench of the window being built or driven, for interactive use.")

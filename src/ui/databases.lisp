@@ -276,7 +276,7 @@ and right-aligned when it holds numbers."
 (defun database-pages (workbench &optional profile)
   (remove-if-not (lambda (page) (and (typep page '(or database-page query-page))
                                      (or (null profile) (eq profile (page-profile page)))))
-                 (children (workbench-tabs workbench))))
+                 (all-tab-pages workbench)))
 
 (defun object-name (object) (car object))
 (defun object-kind (object) (cdr object))
@@ -477,13 +477,12 @@ puts its divider DIVIDER points in once it has a size."
 
 (defun open-database (workbench profile)
   "Shows PROFILE's database tab, opening it the first time."
-  (let ((tabs (workbench-tabs workbench))
-        (page (find-if (lambda (p) (typep p 'database-page)) (database-pages workbench profile))))
+  (let ((page (find-if (lambda (p) (typep p 'database-page)) (database-pages workbench profile))))
     (unless page
       (setf page (make-database-page workbench profile))
       (add-database-tab workbench page (xeon.databases:profile-name profile) :database 240)
       (refresh-database-page page))
-    (select-page tabs page)
+    (show-page workbench page)
     (focus (part page :objects))
     page))
 
@@ -758,17 +757,16 @@ opens it."
                            :default (xeon.databases:profile-name profile) :ok "Rename"
                            :parent (workbench-window workbench))))
     (when (and name (not (blank-p name)))
-      (let ((databases (workbench-databases workbench))
-            (tabs (workbench-tabs workbench)))
+      (let ((databases (workbench-databases workbench)))
         (xeon.databases:rename-connection-profile (databases-store databases) profile name)
         (refresh-profile-row databases profile)
         (refresh-profile-details databases)
         (dolist (page (database-pages workbench profile))
           (etypecase page
             (database-page (refresh-database-header page)
-             (setf (tab-label tabs page) (xeon.databases:profile-name profile)))
+             (setf (tab-label (parent page) page) (xeon.databases:profile-name profile)))
             (query-page (setf (text (part page :title)) (xeon.databases:profile-name profile)
-                              (tab-label tabs page) (query-tab-label profile)))))
+                              (tab-label (parent page) page) (query-tab-label profile)))))
         (update-title workbench)))))
 
 (defun remove-profile (workbench profile)
@@ -777,7 +775,7 @@ opens it."
                  :yes "Remove" :parent (workbench-window workbench))
     (let ((databases (workbench-databases workbench)))
       (dolist (page (database-pages workbench profile))
-        (close-page (workbench-tabs workbench) page :force t))
+        (close-page (parent page) page :force t))
       (disconnect-profile databases profile)
       (xeon.databases:remove-connection-profile (databases-store databases) profile)
       (refresh-databases databases)

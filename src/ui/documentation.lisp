@@ -5,13 +5,14 @@
               :reader documentation-reference)))
 
 (defun refresh-documentation-view (workbench view)
+  (declare (ignore workbench))
   (setf (html view) (xeon.core:documentation-page (documentation-reference view) :interactive :lgt)
-        (tab-label (workbench-tabs workbench) view)
+        (tab-label (parent view) view)
         (xeon.core:buffer-name (documentation-reference view))))
 
 (defun show-documentation-record (workbench pair)
   (let* ((tabs (workbench-tabs workbench))
-         (view (or (find-if (lambda (page) (typep page 'documentation-view)) (children tabs))
+         (view (or (find-if (lambda (page) (typep page 'documentation-view)) (all-tab-pages workbench))
                    (let ((view (make-instance 'documentation-view :local-messages-p t)))
                      (on view :navigation-request
                          (lambda (event)
@@ -36,7 +37,7 @@
     (xeon.core:visit-documentation-entry (documentation-reference view)
                                         (car pair) (docset:record-id (cdr pair)))
     (refresh-documentation-view workbench view)
-    (select-page tabs view)
+    (show-page workbench view)
     (focus view)
     view))
 

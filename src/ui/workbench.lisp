@@ -252,10 +252,16 @@
 
 ;;; Tabs
 
-(defun tab-context-menu (workbench d)
-  (ui (menu
+(defun tab-context-menu (workbench page)
+  (let ((d (page-document page)))
+   (ui (menu
+        (menu-item :label "Split Right" :enabled (can-split-p page)
+                   :on-activate (lambda (e) (declare (ignore e)) (split-editor workbench :horizontal page)))
+        (menu-item :label "Split Down" :enabled (can-split-p page)
+                   :on-activate (lambda (e) (declare (ignore e)) (split-editor workbench :vertical page)))
+        (menu-separator)
         (menu-item :label "Close Tab"
-                   :on-activate (lambda (e) (declare (ignore e)) (close-document workbench d)))
+                   :on-activate (lambda (e) (declare (ignore e)) (close-tab workbench page)))
         (menu-item :label "Close Other Tabs"
                    :on-activate (lambda (e) (declare (ignore e))
                                   (dolist (other (remove d (workbench-documents workbench)))
@@ -266,7 +272,7 @@
                                   (setf (clipboard-text) (uiop:native-namestring (document-path d)))))
         (menu-item :label "Reveal in Finder" :enabled (and (document-path d) t)
                    :on-activate (lambda (e) (declare (ignore e))
-                                  (open-url (uiop:pathname-directory-pathname (document-path d))))))))
+                                  (open-url (uiop:pathname-directory-pathname (document-path d)))))))))
 
 (defun make-editor-tabs (workbench)
   (let* ((tabs (make-instance 'tabbed-pane :reorderable t))
@@ -275,9 +281,13 @@
                                             :image (icon :add :size 16) :control-size :small)))
     (add (tab-bar-end (tab-bar tabs)) (make-preview-button workbench))
     (add (tab-bar-end (tab-bar tabs)) add-button)
-    (on add-button :clicked (lambda (e) (declare (ignore e)) (new-document workbench)))
+    (setf (workbench-tabs workbench) tabs)
+    (on add-button :clicked (lambda (e) (declare (ignore e))
+                              (activate-group workbench tabs)
+                              (new-document workbench)))
     (on tabs :page-changed
         (lambda (e)
+          (setf (workbench-active-tabs workbench) tabs)
           (let ((page (event-value e)))
             (when (typep page 'document-page)
               (ignore-errors
@@ -289,7 +299,8 @@
     (on tabs :page-close-request
         (lambda (e)
           (let ((page (event-value e)))
-            (when (typep page 'document-page)
+            ;; Only a document's last tab asks about its unsaved changes.
+            (when (last-document-page-p workbench page)
               (unless (confirm-closing workbench (page-document page))
                 (veto e)))
             (when (and (typep page 'environments-page) (environments-dirty page)
@@ -302,23 +313,105 @@
             (when (typep page 'api-page) (release-api-page page))
             (when (typep page '(or database-page query-page))
               (release-database-page page))
-            (when (typep page '(or chat-page database-page query-page environments-page))
-              (when (typep page 'chat-page) (stop-chat page))
-              (unless (children tabs) (new-document workbench)))
+            (when (typep page 'chat-page) (stop-chat page))
             (when (typep page 'document-page)
               (let ((view (page-editor page)) (d (page-document page)))
                 (release-preview page)
                 (release-editor-view view)
                 (setf (document-views d) (remove view (document-views d)))
-                (unless (document-views d) (forget-document workbench d)))))))
+                (unless (document-views d) (forget-document workbench d))))
+            ;; An emptied split group closes; the last group always keeps a tab.
+            (unless (children tabs)
+              (if (rest (workbench-groups workbench))
+                  ;; Next turn: the group's own close button may still be handling the click.
+                  (call-in-ui-thread (lambda () (collapse-group workbench tabs)) :owner tabs)
+                  (new-document workbench))))))
     (on tabs :tab-context-request
         (lambda (e)
           (let ((page (event-page e)))
+            (activate-group workbench tabs)
             (when (typep page 'document-page)
-              (popup-menu (tab-context-menu workbench (page-document page))
+              (popup-menu (tab-context-menu workbench page)
                           (tab-bar tabs) (event-x e) (event-y e))
               (consume e)))))
     tabs))
+
+;;; Split editors. Splitting puts the group in a split view beside a new group that
+;;; shows the same document in a view of its own; closing a group's last tab removes it
+;;; and its neighbour takes the space.
+
+(defun activate-group (workbench group)
+  "Makes GROUP the active editor group, refreshing what depends on it."
+  (unless (eq group (workbench-active-tabs workbench))
+    (setf (workbench-active-tabs workbench) group)
+    (let ((page (selected-page group)))
+      (when (typep page 'document-page)
+        (ignore-errors
+         (xeon.core:switch-buffer (workbench-manager workbench) (document-buffer (page-document page))))))
+    (update-title workbench)
+    (refresh-status workbench)
+    (refresh-preview-button workbench)))
+
+(defun replace-child (container old new)
+  "Puts NEW where OLD is in CONTAINER, with OLD's layout, keeping the others' order."
+  (let ((after (rest (member old (children container))))
+        (layout (copy-list (layout-data old))))
+    (dolist (child after) (remove-child container child))
+    (remove-child container old)
+    (setf (layout-data new) layout)
+    (add container new)
+    (dolist (child after) (add container child))))
+
+(defun can-split-p (page)
+  ;; An API tab is a request builder over its document, not a plain editor.
+  (and (typep page 'document-page) (not (typep page 'api-page))))
+
+(defun split-editor (workbench orientation &optional (page (selected-page (workbench-tabs workbench))))
+  "Shows PAGE's document in a new editor group to the right (:HORIZONTAL) or below
+(:VERTICAL) PAGE's group. Returns the new page."
+  (unless (can-split-p page)
+    (report workbench "Only documents can be split.")
+    (return-from split-editor nil))
+  (let* ((tabs (parent page))
+         (d (page-document page))
+         (old-view (page-editor page))
+         (split (make-instance 'paned :orientation orientation :hexpand t :vexpand t))
+         (group (make-editor-tabs workbench)))
+    (replace-child (parent tabs) tabs split)
+    (add split tabs)
+    (add split group)
+    (let* ((new (add-document-page workbench d group))
+           (view (page-editor new)))
+      (show-page workbench new)
+      (set-selection view (anchor old-view) (cursor old-view))
+      (focus view)
+      (flet ((split-evenly ()
+               (unless (destroyed-p split)
+                 (let ((size (if (eq orientation :horizontal) (widget-width split) (widget-height split))))
+                   (when (and size (plusp size)) (setf (divider-position split) (floor size 2)))))))
+        (split-evenly)
+        ;; The split view lays its new pane out on the next turn; split it evenly then.
+        (after 0 #'split-evenly))
+      (update-title workbench)
+      (refresh-status workbench)
+      new)))
+
+(defun collapse-group (workbench group)
+  "Removes the empty editor GROUP; the pane beside it takes its place."
+  (when (and (not (destroyed-p group)) (null (children group)) (rest (workbench-groups workbench)))
+    (let* ((split (parent group))
+           (sibling (find group (children split) :test-not #'eq))
+           (owner (parent split)))
+      (setf (workbench-groups workbench) (remove group (workbench-groups workbench)))
+      (remove-child split sibling)
+      (replace-child owner split sibling)
+      (destroy split)
+      (let ((next (or (find-if (lambda (g) (inside-p g sibling)) (workbench-groups workbench))
+                      (first (workbench-groups workbench)))))
+        (setf (workbench-active-tabs workbench) nil)
+        (activate-group workbench next)
+        (let ((page (selected-page next)))
+          (when (typep page 'document-page) (focus (page-editor page))))))))
 
 ;;; Window frame and layout persistence
 ;;;
@@ -413,11 +506,13 @@ its width here and lets the editor take the difference."
          (styles (syntax-text-styles palette))
          (font (editor-font themes))
          (tab-width (xeon.themes:editor-tab-size themes)))
-    (setf (workbench-palette workbench) palette)
+    (setf (workbench-palette workbench) palette
+          (palette (workbench-window workbench)) (widget-theme-colors palette))
     (setf (appearance (workbench-window workbench)) (theme-appearance themes palette))
     (dolist (d (workbench-documents workbench))
       (dolist (view (document-views d))
-        (setf (text-styles view) styles (font view) font (tab-width view) tab-width)))
+        (setf (palette view) (editor-theme-colors palette)
+              (text-styles view) styles (font view) font (tab-width view) tab-width)))
     (let ((tools (workbench-repl workbench)))
       (when tools
         (dolist (name '(:transcript :input))
@@ -475,14 +570,16 @@ REMEMBER-FRAME NIL neither restores nor saves the window frame and pane layout."
            (sidebar (ui (vbox :surface :sidebar :spacing 0
                           (:widget sidebar-stack :expand t))))
            (tabs (make-editor-tabs workbench))
+           (editor-area (ui (vbox :spacing 0 (:widget tabs :expand t))))
            (tools (ui (vbox :surface :sidebar :spacing 0
                         (:widget (make-tools-panel workbench) :expand t))))
-           (inner (ui (paned (:widget tabs) (:widget tools))))
+           (inner (ui (paned (:widget editor-area) (:widget tools))))
            (outer (ui (paned :position (workbench-sidebar-width workbench)
                         (:widget sidebar) (:widget inner))))
            (status (make-status-bar workbench))
            (window (ui (window :title "Xeon" :width 1280 :height 800
                          :appearance (theme-appearance themes (workbench-palette workbench))
+                         :palette (widget-theme-colors (workbench-palette workbench))
                          (vbox :spacing 0
                            (hbox :spacing 0 :vexpand t
                              (:widget rail)
@@ -491,7 +588,7 @@ REMEMBER-FRAME NIL neither restores nor saves the window frame and pane layout."
                            (separator)
                            (:widget status))))))
       (setf (workbench-window workbench) window (workbench-rail workbench) rail
-            (workbench-sidebar workbench) sidebar (workbench-tabs workbench) tabs
+            (workbench-sidebar workbench) sidebar (workbench-editor-area workbench) editor-area
             (workbench-tools workbench) tools (workbench-inner-split workbench) inner
             (workbench-outer-split workbench) outer)
       (setf (menu-bar window) (make-menus workbench))
@@ -524,7 +621,7 @@ REMEMBER-FRAME NIL neither restores nor saves the window frame and pane layout."
               (stop-tools workbench)
               (stop-project-runs workbench)
               (stop-database-workers workbench)
-              (dolist (page (children (workbench-tabs workbench)))
+              (dolist (page (all-tab-pages workbench))
                 (when (typep page 'api-page) (release-api-page page)))
               (dolist (d (workbench-documents workbench)) (release-document d)))))
       (dolist (signal '(:resize :state-changed))

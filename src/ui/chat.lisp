@@ -125,7 +125,7 @@ said it was ready but before the web view finished loading wait for it."
     (setf (chat-session page) nil)))
 
 (defun chat-pages (workbench)
-  (remove-if-not (lambda (page) (typep page 'chat-page)) (children (workbench-tabs workbench))))
+  (remove-if-not (lambda (page) (typep page 'chat-page)) (all-tab-pages workbench)))
 
 (defun follow-chat-folders (workbench folder)
   "Moves every chat to the newly opened folder: each starts a new conversation there."
@@ -344,8 +344,8 @@ arguments."
               (chat-call page "xeonChat.end" version))))))))
 
 (defun update-chat-tab (page state)
-  (let ((tabs (workbench-tabs (chat-workbench page))))
-    (when (member page (children tabs))
+  (let ((tabs (parent page)))
+    (when (and tabs (member page (children tabs)))
       (let ((label (format nil "~A chat" (provider-label (getf state :provider)))))
         (unless (equal label (tab-label tabs page)) (setf (tab-label tabs page) label)))
       ;; A request waiting for the user is marked in the tab, as unsaved files are.

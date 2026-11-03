@@ -26,9 +26,17 @@
   (let ((view (active-editor workbench)))
     (and view (view-document view))))
 
+;;; A document can show in several editor groups at once, one page and view in each.
+
+(defun document-pages (workbench d)
+  "D's pages, one in each editor group that shows it."
+  (remove-if-not (lambda (page) (and (typep page 'document-page) (eq (page-document page) d)))
+                 (all-tab-pages workbench)))
+
 (defun find-document-page (workbench d)
-  (find-if (lambda (page) (and (typep page 'document-page) (eq (page-document page) d)))
-           (children (workbench-tabs workbench))))
+  "D's page in the active editor group, otherwise its first page."
+  (let ((pages (document-pages workbench d)))
+    (or (find (workbench-tabs workbench) pages :key #'parent) (first pages))))
 
 (defun document-tab-tooltip (d)
   (let ((path (document-path d)))
@@ -37,9 +45,8 @@
           (t "Not saved yet"))))
 
 (defun update-document-tab (workbench d)
-  (let ((page (find-document-page workbench d))
-        (tabs (workbench-tabs workbench)))
-    (when page
+  (dolist (page (document-pages workbench d))
+    (let ((tabs (parent page)))
       (unless (equal (tab-label tabs page) (document-name d))
         (setf (tab-label tabs page) (document-name d)))
       (setf (tab-tooltip tabs page) (document-tab-tooltip d))
@@ -54,8 +61,8 @@
 
 (defun document-changed (workbench d)
   (update-document-tab workbench d)
-  (let ((page (find-document-page workbench d)))
-    (when page (schedule-preview workbench page)))
+  (dolist (page (document-pages workbench d))
+    (schedule-preview workbench page))
   (when (eq d (active-document workbench))
     (update-title workbench)
     (refresh-status workbench)))
@@ -66,25 +73,33 @@
 (defun add-document (workbench buffer)
   (when (member (pathname-type (or (xeon.core:buffer-pathname buffer) "")) '("http" "rest") :test #'equalp)
     (return-from add-document (page-document (open-api-workspace workbench :buffer buffer))))
-  (let* ((d (make-instance 'document :workbench workbench :buffer buffer
-                                     :on-change (lambda (d) (document-changed workbench d))))
-         (view (make-editor-view workbench d))
-         (page (make-instance 'document-page :editor view))
-         (tabs (workbench-tabs workbench)))
-    (add page view)
+  (let ((d (make-instance 'document :workbench workbench :buffer buffer
+                                    :on-change (lambda (d) (document-changed workbench d)))))
     (setf (workbench-documents workbench) (append (workbench-documents workbench) (list d)))
+    (let ((page (add-document-page workbench d (workbench-tabs workbench))))
+      (unless *background-document-operation*
+        (show-page workbench page)
+        (focus (page-editor page))))
+    d))
+
+(defun add-document-page (workbench d tabs)
+  "Adds a tab showing D to the editor group TABS, with a view of its own. Returns the page."
+  (let* ((view (make-editor-view workbench d))
+         (page (make-instance 'document-page :editor view)))
+    (add page view)
     (add tabs page :tab-label (document-name d) :tab-tooltip (document-tab-tooltip d))
+    (update-document-tab workbench d)
     (on view :selection-changed (lambda (e) (declare (ignore e))
                                   (when (eq view (active-editor workbench)) (refresh-position workbench))))
-    (unless *background-document-operation*
-      (select-page tabs page)
-      (focus view))
-    d))
+    ;; Clicking into a view makes its group the one commands act on.
+    (on view :mouse-down (lambda (e) (declare (ignore e))
+                           (when (parent page) (activate-group workbench (parent page)))))
+    page))
 
 (defun show-document (workbench d)
   (let ((page (and d (find-document-page workbench d))))
     (when (and page (not *background-document-operation*))
-      (select-page (workbench-tabs workbench) page)
+      (show-page workbench page)
       (focus (page-editor page)))
     d))
 
@@ -193,17 +208,29 @@
           (t nil)))))
 
 (defun close-document (workbench &optional (d (active-document workbench)) force)
-  "Closes D, asking to save its changes unless FORCE."
-  (let ((page (and d (find-document-page workbench d))))
-    (when (and page (or force (confirm-closing workbench d)))
-      (close-page (workbench-tabs workbench) page :force t)
+  "Closes D in every editor group, asking to save its changes unless FORCE."
+  (let ((pages (and d (document-pages workbench d))))
+    (when (and pages (or force (confirm-closing workbench d)))
+      (dolist (page pages)
+        (unless (destroyed-p page) (close-page (parent page) page :force t)))
       t)))
+
+(defun last-document-page-p (workbench page)
+  "True when PAGE is the only tab showing its document."
+  (and (typep page 'document-page)
+       (null (rest (document-pages workbench (page-document page))))))
+
+(defun close-tab (workbench page)
+  "Closes PAGE. Closing a document's last tab asks about its unsaved changes; another
+tab of a split document just closes."
+  (if (last-document-page-p workbench page)
+      (close-document workbench (page-document page))
+      (close-page (parent page) page)))
 
 (defun close-active-tab (workbench)
   "Closes the selected tab: a document, asking about unsaved changes, or a chat."
   (let ((page (selected-page (workbench-tabs workbench))))
-    (cond ((typep page 'document-page) (close-document workbench (page-document page)))
-          (page (close-page (workbench-tabs workbench) page)))))
+    (when page (close-tab workbench page))))
 
 (defun forget-document (workbench d)
   "After D's tab closed: release it, and keep one document open."
@@ -211,7 +238,7 @@
   (release-document d)
   (ignore-errors (xeon.core:close-buffer (workbench-manager workbench) (document-buffer d)
                                          :if-modified :discard))
-  (unless (children (workbench-tabs workbench))
+  (unless (all-tab-pages workbench)
     (new-document workbench))
   (update-title workbench)
   (refresh-status workbench))

@@ -153,7 +153,7 @@ document.addEventListener('click',function(e){var a=e.target.closest('a');if(!a)
 (defun restyle-previews (workbench)
   "Gives every open preview the current theme's colors."
   (let ((palette (workbench-palette workbench)))
-    (dolist (page (children (workbench-tabs workbench)))
+    (dolist (page (all-tab-pages workbench))
       (let ((view (and (typep page 'document-page) (page-preview page))))
         (when (and view (web-view-ready-p view))
           (run-script view (format nil "xeonColors(~A,~A)"

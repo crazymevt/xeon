@@ -503,7 +503,7 @@ preview tab; else in a new tab."
         (show-document workbench d)
         ;; A preview leaves the keyboard in the list, to go on to the next file.
         (let ((page (find-document-page workbench d)))
-          (when page (select-page (workbench-tabs workbench) page))
+          (when page (show-page workbench page))
           (focus (part scm :tree))))
     d))
 

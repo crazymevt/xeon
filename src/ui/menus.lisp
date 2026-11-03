@@ -105,6 +105,12 @@
             (menu-item :label "API Environments" :on-activate (action (workbench) (open-environments workbench)))
             (menu-item :label "Toggle Runtime Tools" :shortcut "Primary+J"
                        :on-activate (action (workbench) (toggle-tools workbench)))
+            (menu-item :label "Split Editor Right" :shortcut "Primary+\\"
+                       :enabled-function (available (lambda () (can-split-p (selected-page (workbench-tabs workbench)))))
+                       :on-activate (action (workbench) (split-editor workbench :horizontal)))
+            (menu-item :label "Split Editor Down" :shortcut "Primary+Shift+\\"
+                       :enabled-function (available (lambda () (can-split-p (selected-page (workbench-tabs workbench)))))
+                       :on-activate (action (workbench) (split-editor workbench :vertical)))
             (menu-item :label "Toggle Markdown Preview" :shortcut "Primary+Shift+V"
                        :enabled-function (available (lambda () (markdown-document-p (active-document workbench))))
                        :on-activate (action (workbench) (toggle-markdown-preview workbench)))
