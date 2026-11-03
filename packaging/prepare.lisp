@@ -4,5 +4,5 @@
                   :path (merge-pathnames "quicklisp/" (uiop:getcwd)))
 (asdf:load-asd (merge-pathnames "xeon.asd" (uiop:getcwd)))
 (uiop:symbol-call :ql :quickload
-                  #+(and unix (not darwin)) '("xeon/ui" "lgt/gtk/native")
-                  #-(and unix (not darwin)) "xeon/ui")
+                  #+(and unix (not darwin)) '("xeon/ui" "xeon/terminal" "lgt/gtk/native")
+                  #-(and unix (not darwin)) '("xeon/ui" "xeon/terminal"))

@@ -14,8 +14,8 @@
 (load (merge-pathnames "quicklisp/setup.lisp" *xeon-root*))
 (asdf:load-asd (merge-pathnames "xeon.asd" *xeon-root*))
 (uiop:symbol-call :ql :quickload
-                  #+(and unix (not darwin)) '("xeon/ui" "lgt/gtk/native")
-                  #-(and unix (not darwin)) "xeon/ui"
+                  #+(and unix (not darwin)) '("xeon/ui" "xeon/terminal" "lgt/gtk/native")
+                  #-(and unix (not darwin)) '("xeon/ui" "xeon/terminal")
                   :silent t)
 
 (if (member "--check" (uiop:command-line-arguments) :test #'string=)
