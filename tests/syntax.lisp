@@ -526,8 +526,7 @@
     (check (null (lookup (make-string 70000 :initial-element #\Space) 69000)))))
 
 (defun test-sql-syntax ()
-  (let ((text (format nil "select name FROM \"Users\" -- who~%WHERE note = 'it''s
-two lines\\' AND n > 1.5 /* block~%comment */ AND x IS NULL;")))
+  (let ((text (format nil "select name FROM \"Users\" -- who~%WHERE note = 'it''s~%two lines\\' AND n > 1.5 /* block~%comment */ AND x IS NULL;")))
     (check (eq :sql (xeon.syntax:detect-language (make-buffer :name "query.sql"))))
     (check-token-style text "select" 1 "q.sql")
     (check-token-style text "FROM" 1 "q.sql")

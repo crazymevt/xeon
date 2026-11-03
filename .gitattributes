@@ -2,3 +2,6 @@
 data/docsets/common-lisp/entries.sexp text eol=lf
 packaging/xeon text eol=lf
 packaging/macos-launcher text eol=lf
+# Multiline string literals preserve source line endings in SBCL.
+*.lisp text eol=lf
+*.asd text eol=lf
