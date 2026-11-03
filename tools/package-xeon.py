@@ -67,7 +67,7 @@ def package(args):
     copy_tree(args.quicklisp, stage / "quicklisp")
 
     runtime = stage / "runtime"
-    copy_tree(args.sbcl_home, runtime / "lib")
+    shutil.copytree(args.sbcl_home, runtime / "lib")
     (runtime / "bin").mkdir()
     sbcl = runtime / "bin" / ("sbcl.exe" if WINDOWS else "sbcl")
     shutil.copy2(args.sbcl.resolve(), sbcl)
