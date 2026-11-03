@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Xeon Lisp IDE</title>
+  <rect x="32" y="32" width="448" height="448" rx="100" fill="#171426"/>
+  <rect x="70" y="88" width="372" height="336" rx="44" fill="#231d37" stroke="#514365" stroke-width="6"/>
+  <path d="M74 154h364" stroke="#514365" stroke-width="6"/>
+  <circle cx="108" cy="122" r="8" fill="#c3a5ff"/>
+  <path d="M132 122h24m17 0h24" stroke="#827392" stroke-width="8" stroke-linecap="round"/>
+  <path d="M164 205c-36 40-36 112 0 152m184-152c36 40 36 112 0 152" fill="none" stroke="#c3a5ff" stroke-width="18" stroke-linecap="round"/>
+  <path d="M219 220h19l57 120h15m-57-88-49 88" fill="none" stroke="#fff2dd" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

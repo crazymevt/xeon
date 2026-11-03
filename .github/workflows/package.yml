@@ -1,0 +1,95 @@
+name: Packages
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check out LGT
+        uses: actions/checkout@v4
+        with:
+          repository: crazymevt/lgt
+          ref: 5936a0bb1e7e38140fbd0dac36a2e223bab99c9c
+          path: quicklisp/local-projects/lgt
+          persist-credentials: false
+      - name: Check out GTK Lisp bindings
+        if: runner.os == 'Linux'
+        uses: actions/checkout@v4
+        with:
+          repository: crazymevt/gtk4
+          ref: 4f7ac6daf9de3f4fce1ca75b0f5dbf56681fac70
+          path: quicklisp/local-projects/gtk4
+          persist-credentials: false
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          python tools/ci-run.py --log build/apt-update.log -- sudo apt-get update
+          python tools/ci-run.py --log build/install.log -- sudo apt-get install -y sbcl libgtk-4-1 libsqlite3-0
+          echo "XEON_SBCL=$(command -v sbcl)" >> "$GITHUB_ENV"
+          echo "XEON_SBCL_HOME=/usr/lib/sbcl" >> "$GITHUB_ENV"
+          echo "XEON_SBCL_NOTICE=/usr/share/doc/sbcl/copyright" >> "$GITHUB_ENV"
+      - name: Install macOS build dependencies
+        if: runner.os == 'macOS'
+        run: |
+          python tools/ci-run.py --log build/install.log -- brew install sbcl librsvg
+          prefix=$(brew --prefix sbcl)
+          echo "XEON_SBCL=$prefix/libexec/bin/sbcl" >> "$GITHUB_ENV"
+          echo "XEON_SBCL_HOME=$prefix/lib/sbcl" >> "$GITHUB_ENV"
+          echo "XEON_SBCL_NOTICE=$prefix/COPYING" >> "$GITHUB_ENV"
+      - name: Install Windows build dependencies
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python tools/ci-run.py --log build/install.log -- choco install sbcl -y --no-progress
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $root = "$env:ProgramFiles\Steel Bank Common Lisp"
+          $exe = Get-ChildItem $root -Filter sbcl.exe -Recurse | Select-Object -First 1
+          $core = Get-ChildItem $root -Filter sbcl.core -Recurse | Select-Object -First 1
+          $notice = Get-ChildItem $root -Filter COPYING -Recurse | Select-Object -First 1
+          if (!$exe -or !$core -or !$notice) { throw 'SBCL runtime or notice is missing' }
+          "XEON_SBCL=$($exe.FullName)" >> $env:GITHUB_ENV
+          "XEON_SBCL_HOME=$($core.DirectoryName)" >> $env:GITHUB_ENV
+          "XEON_SBCL_NOTICE=$($notice.FullName)" >> $env:GITHUB_ENV
+      - name: Resolve Lisp dependencies
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --location https://beta.quicklisp.org/quicklisp.lisp --output quicklisp.lisp
+          SBCL_HOME="$XEON_SBCL_HOME" python tools/ci-run.py --log build/quicklisp.log -- "$XEON_SBCL" --script packaging/prepare.lisp
+      - name: Build terminal bridge
+        run: python tools/ci-run.py --log build/terminal-build.log -- python tools/build-terminal.py
+      - name: Build app-private native libraries
+        run: python tools/ci-run.py --log build/native-bundle.log -- python tools/build-http-bundle.py --include-sqlite
+      - name: Stage, smoke test, and archive Xeon
+        shell: bash
+        run: |
+          python tools/ci-run.py --log build/package.log -- python tools/package-xeon.py \
+            --output build/dist --quicklisp quicklisp --sbcl "$XEON_SBCL" \
+            --sbcl-home "$XEON_SBCL_HOME" --sbcl-notice "$XEON_SBCL_NOTICE"
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: xeon-${{ matrix.os }}
+          path: build/dist/xeon-*
+          if-no-files-found: error
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-logs-${{ matrix.os }}
+          path: build/*.log

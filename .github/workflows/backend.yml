@@ -1,6 +1,10 @@
 name: Backend
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read

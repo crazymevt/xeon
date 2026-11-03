@@ -8,6 +8,23 @@ The GUI is built with [LGT](https://github.com/crazymevt/lgt), the Lisp GUI Tool
 controls. The backend was copied from Xeon's LUT-based tree; see
 [PROVENANCE.md](PROVENANCE.md).
 
+## Automated packages
+
+The **Packages** workflow builds download artifacts on branch pushes and can also
+be run manually from Actions. Open a successful run and download the artifact for
+your platform. Git tag pushes do not start the test or package workflows.
+
+- **Windows x64**. Extract the inner ZIP and run `Xeon.cmd`. The package includes
+  SBCL, the terminal bridge, SQLite, libcurl, and CA certificates. Embedded web
+  views use the Windows WebView2 Runtime when it is available.
+- **macOS**. Extract the tarball and open `Xeon.app`. The bundle includes SBCL,
+  the terminal bridge, libcurl, and CA certificates. It uses macOS SQLite and
+  system frameworks. The CI application is ad hoc signed.
+- **Ubuntu 24.04 x64**. Install the Debian package with
+  `sudo apt install ./xeon-linux-x86_64.deb`. APT installs GTK and SQLite
+  dependencies. The tarball contains the same application for users who already
+  have those system libraries.
+
 ## API requests
 
 Choose **File → New API Request**, or open a `.http` / `.rest` collection.

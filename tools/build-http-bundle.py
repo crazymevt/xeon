@@ -43,7 +43,7 @@ def download(url, target):
         target.write_bytes(source.read())
 
 
-def build(output):
+def build(output, include_sqlite=False):
     system = platform.system()
     arch = {"aarch64": "arm64", "arm64": "arm64", "AMD64": "x64", "x86_64": "x64"}.get(platform.machine())
     if not arch or system not in ("Darwin", "Linux", "Windows"):
@@ -62,13 +62,16 @@ def build(output):
     triplet = f"krypton-{arch}-{system.lower()}"
     crt = "static" if system == "Windows" else "dynamic"
     cmake = f"set(VCPKG_TARGET_ARCHITECTURE {arch})\nset(VCPKG_CRT_LINKAGE {crt})\n"
-    cmake += 'if(PORT STREQUAL "curl")\n  set(VCPKG_LIBRARY_LINKAGE dynamic)\nelse()\n  set(VCPKG_LIBRARY_LINKAGE static)\nendif()\n'
+    cmake += 'if(PORT STREQUAL "curl" OR PORT STREQUAL "sqlite3")\n  set(VCPKG_LIBRARY_LINKAGE dynamic)\nelse()\n  set(VCPKG_LIBRARY_LINKAGE static)\nendif()\n'
     if system != "Windows":
         cmake += f"set(VCPKG_CMAKE_SYSTEM_NAME {'Darwin' if system == 'Darwin' else 'Linux'})\n"
     (triplets / (triplet + ".cmake")).write_text(cmake)
     installed = work / "installed"
     run(executable, "install", f"curl[core,openssl]:{triplet}", "--classic",
         f"--overlay-triplets={triplets}", f"--x-install-root={installed}", "--disable-metrics", cwd=work)
+    if system == "Windows" and include_sqlite:
+        run(executable, "install", f"sqlite3:{triplet}", "--classic",
+            f"--overlay-triplets={triplets}", f"--x-install-root={installed}", "--disable-metrics", cwd=work)
     prefix = installed / triplet
     filename = {"Darwin": "libcurl.4.dylib", "Linux": "libcurl.so.4", "Windows": "libcurl.dll"}[system]
     library = prefix / ("bin" if system == "Windows" else "lib") / filename
@@ -79,6 +82,8 @@ def build(output):
     output = Path(tempfile.mkdtemp(prefix=".http-bundle-", dir=destination.parent))
     shutil.copy2(library.resolve(), output / filename)
     # Preserve the exact notices of every built dependency, including static ones.
+    if system == "Windows" and include_sqlite:
+        shutil.copy2(prefix / "bin/sqlite3.dll", output / "sqlite3.dll")
     licenses = output / "licenses"
     licenses.mkdir(exist_ok=True)
     for notice in (prefix / "share").glob("*/copyright"):
@@ -123,5 +128,6 @@ def build(output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=ROOT / "native/http")
+    parser.add_argument("--include-sqlite", action="store_true", help="Stage SQLite for Windows releases")
     args = parser.parse_args()
-    build(args.output.resolve())
+    build(args.output.resolve(), args.include_sqlite)

@@ -9,6 +9,7 @@ target_include_directories(krypton_terminal PRIVATE ../../vendor/libvterm/includ
 find_package(Threads REQUIRED)
 target_link_libraries(krypton_terminal PRIVATE Threads::Threads)
 if(WIN32)
+  set_property(TARGET krypton_terminal PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
   target_compile_definitions(krypton_terminal PRIVATE _WIN32_WINNT=0x0A00 NOMINMAX WIN32_LEAN_AND_MEAN)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   target_link_libraries(krypton_terminal PRIVATE util)
