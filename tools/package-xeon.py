@@ -99,7 +99,8 @@ def package(args):
                PATH=str(runtime / "bin") + os.pathsep + os.environ["PATH"],
                XEON_HTTP_BUNDLE=str(stage / "native/http"),
                XEON_TERMINAL_LIBRARY=str(stage / "native/terminal" / terminal))
-    subprocess.run([str(sbcl), "--script", str(stage / "packaging/launch.lisp"), "--check"],
+    heap = ["--dynamic-space-size", "4096"] if PLATFORM == "Linux" else []
+    subprocess.run([str(sbcl), *heap, "--script", str(stage / "packaging/launch.lisp"), "--check"],
                    cwd=stage, env=env, check=True)
     if MAC:
         contents = stage.parent

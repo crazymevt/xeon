@@ -10,9 +10,9 @@ controls. The backend was copied from Xeon's LUT-based tree; see
 
 ## Automated packages
 
-The **Packages** workflow builds download artifacts on branch pushes and can also
-be run manually from Actions. Open a successful run and download the artifact for
-your platform. Git tag pushes do not start the test or package workflows.
+The **CI** workflow tests Xeon and builds download artifacts on branch pushes. It
+can also be run manually from Actions. Open a successful run and download the
+artifact for your platform. Git tag pushes do not start CI.
 
 - **Windows x64**. Extract the inner ZIP and run `Xeon.cmd`. The package includes
   SBCL, the terminal bridge, SQLite, libcurl, and CA certificates. Embedded web

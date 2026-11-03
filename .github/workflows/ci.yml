@@ -1,8 +1,9 @@
-name: Packages
+name: CI
 
 on:
   push:
     branches: ['**']
+  pull_request:
   workflow_dispatch:
 
 concurrency:
@@ -13,7 +14,70 @@ permissions:
   contents: read
 
 jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SBCL on macOS
+        if: runner.os == 'macOS'
+        run: python tools/ci-run.py --log build/install.log -- brew install sbcl
+      - name: Install SBCL on Linux
+        if: runner.os == 'Linux'
+        run: |
+          python tools/ci-run.py --log build/apt-update.log -- sudo apt-get update
+          python tools/ci-run.py --log build/install.log -- sudo apt-get install -y sbcl
+      - name: Install SBCL on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python tools/ci-run.py --log build/install.log -- choco install sbcl -y --no-progress
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $sbclHome = [Environment]::GetEnvironmentVariable('SBCL_HOME', 'Machine')
+          if ($sbclHome) { "SBCL_HOME=$sbclHome" >> $env:GITHUB_ENV }
+          $exe = Get-ChildItem "$env:ProgramFiles\Steel Bank Common Lisp" -Filter sbcl.exe -Recurse | Select-Object -First 1
+          if (-not $exe) { throw 'SBCL executable was not found after installation' }
+          $exe.DirectoryName >> $env:GITHUB_PATH
+      - name: Fetch CL-PPCRE 2.1.2
+        run: python tools/ci-run.py --log build/dependency-fetch.log -- git clone --depth 1 --branch v2.1.2 https://github.com/edicl/cl-ppcre.git build/deps/cl-ppcre
+      - name: Pin dependency commit
+        run: python tools/ci-run.py --log build/dependency-pin.log -- git -C build/deps/cl-ppcre checkout --detach 80fb19d104647a2c4efd5f66f65811948bf8156b
+      - name: Headless backend checks
+        run: python tools/ci-run.py --log build/backend.log -- sbcl --noinform --no-sysinit --no-userinit --non-interactive --load tests/run.lisp
+      - name: Local SBCL REPL integration
+        run: python tools/ci-run.py --log build/repl.log -- sbcl --noinform --no-sysinit --no-userinit --non-interactive --load tools/check-repl.lisp
+      - name: Retain logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-${{ matrix.os }}
+          path: build/*.log
+  terminal:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build vendored terminal bridge
+        run: python tools/ci-run.py --log build/terminal-build.log -- python tools/build-terminal.py
+      - name: Emulator and real PTY / ConPTY checks
+        run: python tools/ci-run.py --log build/terminal-test.log -- python tools/check-terminal.py
+      - name: Retain logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terminal-${{ matrix.os }}
+          path: build/terminal-*.log
   package:
+    if: github.event_name != 'pull_request'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     strategy:
@@ -83,7 +147,9 @@ jobs:
         shell: bash
         run: |
           curl --fail --silent --show-error --location https://beta.quicklisp.org/quicklisp.lisp --output quicklisp.lisp
-          SBCL_HOME="$XEON_SBCL_HOME" python tools/ci-run.py --log build/quicklisp.log -- "$XEON_SBCL" --script packaging/prepare.lisp
+          heap=()
+          if [[ "$RUNNER_OS" == Linux ]]; then heap=(--dynamic-space-size 4096); fi
+          SBCL_HOME="$XEON_SBCL_HOME" python tools/ci-run.py --log build/quicklisp.log -- "$XEON_SBCL" "${heap[@]}" --script packaging/prepare.lisp
       - name: Build terminal bridge
         run: python tools/ci-run.py --log build/terminal-build.log -- python tools/build-terminal.py
       - name: Build app-private native libraries

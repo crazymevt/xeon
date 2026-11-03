@@ -3,4 +3,9 @@ set -eu
 root=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 export SBCL_HOME="$root/runtime/lib"
 export PATH="$root/runtime/bin:$PATH"
-exec "$root/runtime/bin/sbcl" --noinform --no-sysinit --no-userinit --script "$root/packaging/launch.lisp" "$@"
+if [ "$(uname -s)" = Linux ]; then
+  set -- --dynamic-space-size 4096 --script "$root/packaging/launch.lisp" "$@"
+else
+  set -- --script "$root/packaging/launch.lisp" "$@"
+fi
+exec "$root/runtime/bin/sbcl" --noinform --no-sysinit --no-userinit "$@"
