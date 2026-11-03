@@ -4,7 +4,7 @@ Headless Common Lisp editor backend: documents, editing, search, syntax,
 projects, REPLs, terminals, HTTP, SQLite and AI chat sessions. SBCL is the
 supported implementation.
 
-The GUI is built with [LGT](../lgt), the Lisp GUI Toolkit, using native macOS
+The GUI is built with [LGT](https://github.com/crazymevt/lgt), the Lisp GUI Toolkit, using native macOS
 controls. The backend was copied from Xeon's LUT-based tree; see
 [PROVENANCE.md](PROVENANCE.md).
 
@@ -23,10 +23,21 @@ There is no idle request polling. Variables are saved in the collection, so avoi
 putting private credentials in files you share. Response bytes are not saved into
 the collection, and HTTP payload whitespace is never trimmed on save.
 
+## Setup and installation
+
+The desktop editor runs from source on macOS. Install SBCL, Make and Quicklisp,
+then follow the [LGT installation instructions](https://github.com/crazymevt/lgt#installing).
+Xeon's launcher loads Quicklisp from `~/quicklisp/setup.lisp`, so use that
+location for Quicklisp.
+
+Use this repository's checkout and make sure Quicklisp can find LGT.
+The editor loads as `xeon/ui`, and Quicklisp resolves its Lisp dependencies.
+If CL-PPCRE is unavailable, see [Load and test](#load-and-test) for the required
+version and local source options.
+
 ## Run the editor
 
-LGT must be visible to Quicklisp (for example linked into
-`~/quicklisp/local-projects/`).
+Run these commands from the Xeon checkout.
 
 ```sh
 make run                         # opens the current folder
