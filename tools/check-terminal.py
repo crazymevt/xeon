@@ -107,7 +107,9 @@ with tempfile.TemporaryDirectory(prefix='krypton terminal λ ') as directory:
     try:
         shell = b'cmd.exe' if os.name == 'nt' else b'/bin/sh'
         check(start(t, directory.encode('utf-8'), shell) == 1)
-        command = ('echo krypton-%s' % 'conpty-ready' if os.name == 'nt' else
+        if os.name == 'nt':
+            wait_for(t, lambda s: directory.rsplit(' ', 1)[-1] + '>' in s)
+        command = ('echo krypton-conpty-rea^dy' if os.name == 'nt' else
                    "test -t 0 && test -t 1 && printf 'krypton-%s\\n' 'pty-ready'")
         b = command.encode()
         check(paste(t, b, len(b)) == 1)

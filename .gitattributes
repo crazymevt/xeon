@@ -1,0 +1,4 @@
+# The docset index stores byte offsets into this file.
+data/docsets/common-lisp/entries.sexp text eol=lf
+packaging/xeon text eol=lf
+packaging/macos-launcher text eol=lf

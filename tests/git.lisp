@@ -100,7 +100,7 @@
                     (git directory "config" "commit.gpgsign" "false")
                     (git directory "config" "core.hooksPath" (uiop:native-namestring (merge-pathnames "no-hooks/" base)))))
            (ensure-directories-exist remote) (ensure-directories-exist root)
-           (git remote "init" "--quiet" "--bare")
+           (git remote "init" "--quiet" "--bare" "--initial-branch=main")
            ;; Before a repository exists, :init makes one.
            (let ((plain (xeon.folders:open-folder-project root)))
              (check (not (xeon.folders:project-git-p plain)))
