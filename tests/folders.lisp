@@ -2,6 +2,15 @@
 (defun folder-test-write (path text)
   (ensure-directories-exist path)
   (with-open-file (out path :direction :output :if-exists :supersede :external-format :utf-8) (write-string text out)))
+(defun delete-git-test-directory (directory)
+  ;; Git can mark loose objects read-only. Windows requires clearing that
+  ;; attribute before deleting the fixture.
+  #+win32
+  (when (uiop:directory-exists-p directory)
+    (uiop:run-program '("attrib.exe" "-R" "*" "/S" "/D")
+                      :directory directory :ignore-error-status t))
+  (uiop:delete-directory-tree directory :validate t :if-does-not-exist :ignore))
+
 (defun test-folders ()
   #-win32
   (check (not (xeon.folders::path-within-root-p #p"/tmp/project/" #p"/tmp/Project/")))
@@ -58,7 +67,7 @@
                           (check (= id (xeon.folders:folder-result-id (first results))))
                           (check (null (xeon.folders:folder-result-error (first results)))))
                      (xeon.folders:stop-folder-worker worker :wait-p t)))))))
-      (uiop:delete-directory-tree root :validate t :if-does-not-exist :ignore))))
+      (delete-git-test-directory root))))
 
 (defun test-folder-mutations-and-history ()
   (let* ((root (merge-pathnames (format nil "krypton-actions-~A/" (gensym)) (uiop:temporary-directory)))

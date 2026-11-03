@@ -61,7 +61,7 @@
                  (check (equal "sub/λ space.lisp" (xeon.folders:git-change-original change))))
                (signals error (xeon.folders:perform-git-action project :stage '("../outside")))
                (signals error (xeon.folders:perform-git-action project :commit nil :message "   ")))))
-      (uiop:delete-directory-tree root :validate t :if-does-not-exist :ignore))))
+      (delete-git-test-directory root))))
 
 (defun test-git-branches-and-sync ()
   (flet ((branch-line (line)
@@ -161,4 +161,4 @@
              (let ((status (xeon.folders::parse-git-status
                             (format nil "## main~CUU c.lisp~C M d.lisp~C" #\Null #\Null #\Null))))
                (check (= 2 (length (xeon.folders:git-status-changes status)))))))
-      (uiop:delete-directory-tree base :validate t :if-does-not-exist :ignore))))
+      (delete-git-test-directory base))))

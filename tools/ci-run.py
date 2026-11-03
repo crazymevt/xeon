@@ -27,7 +27,12 @@ print(f"{'OK' if status == 0 else 'FAILED'} (exit {status}): {log.resolve()}")
 sys.stdout.reconfigure(errors="backslashreplace")
 lines = log.read_text(encoding="utf-8", errors="replace").splitlines()
 if status:
-    print("\n".join(lines[-60:]))
+    tail = max(0, len(lines) - 60)
+    error = next((i for i, line in enumerate(lines[:tail])
+                  if line.startswith(("Unhandled ", "fatal error encountered"))), None)
+    if error is not None:
+        print("\n".join(lines[error:min(error + 12, tail)]))
+    print("\n".join(lines[tail:]))
 else:
     for line in lines:
         if "backend checks passed" in line:
