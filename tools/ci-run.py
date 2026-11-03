@@ -24,6 +24,7 @@ with log.open("wb") as output:
         output.write(str(error).encode("utf-8"))
         status = 127
 print(f"{'OK' if status == 0 else 'FAILED'} (exit {status}): {log.resolve()}")
+sys.stdout.reconfigure(errors="backslashreplace")
 lines = log.read_text(encoding="utf-8", errors="replace").splitlines()
 if status:
     print("\n".join(lines[-60:]))

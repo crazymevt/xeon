@@ -82,7 +82,10 @@
     (check (string= "scratch" (read-test-file (buffer-pathname b))))))
 
 (defun test-file-paths (directory)
-  (let* ((path (merge-pathnames "Unicode λ 日本 😀 file.txt" directory))
+  ;; SBCL's Win32 pathname calls encode native paths as UCS-2.
+  (let* ((path (merge-pathnames #+win32 "Unicode λ 日本 file.txt"
+                                #-win32 "Unicode λ 日本 😀 file.txt"
+                                directory))
          (b (make-buffer :text "Unicode filename")))
     (save-buffer-as b path)
     (check (string= "Unicode filename" (buffer-text (open-buffer-file path))))
