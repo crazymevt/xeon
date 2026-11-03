@@ -58,6 +58,20 @@ was maximized, the explorer and tools widths and which of them are shown. Settin
 (the gear, or Xeon › Settings…) choose the theme, editor font size, tab width and
 whitespace trimming. `tools/screenshot.lisp` captures the window for review.
 
+## Workflow gallery
+
+![Xeon with a connected SBCL REPL and an evaluation result](docs/gallery/repl.png)
+
+Evaluate Common Lisp forms in a live SBCL session.
+
+![Xeon debugger showing a paused error, restarts, and stack frames](docs/gallery/debugger.png)
+
+Inspect stack frames and choose a restart when evaluation pauses.
+
+![Markdown source and rendered README side by side in Xeon](docs/gallery/markdown.png)
+
+Edit Markdown alongside its live preview.
+
 ## Load and test
 
 Make CL-PPCRE 2.1.2 available to ASDF (for example through Quicklisp), or place
